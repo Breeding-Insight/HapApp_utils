@@ -1,5 +1,11 @@
 #!/usr/bin/python3
 
+###############################################################################
+###	 @author: Dongyan Zhao
+###  @email: dongyan.zhao@ufl.edu
+###  @date: 03/30/2026
+###  Usage: step06_update_MADC_with_allele_uniqueness_v1.py [-h] dup madc_cleaned
+###############################################################################
 
 def get_duplicate_alleles(dup):
     # alfalfa_allele_db_v2.fa.self.bn

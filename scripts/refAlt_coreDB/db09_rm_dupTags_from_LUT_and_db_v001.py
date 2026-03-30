@@ -1,5 +1,11 @@
 #!/usr/bin/python3
 
+###############################################################################
+###	 @author: Dongyan Zhao
+###  @email: dongyan.zhao@ufl.edu
+###  @date: 03/30/2026
+###  Usage: db09_rm_dupTags_from_LUT_and_db_v001.py [-h] file dupTag
+###############################################################################
 
 def get_dup_tags(dupTag):
     inp = open(dupTag, 'r')

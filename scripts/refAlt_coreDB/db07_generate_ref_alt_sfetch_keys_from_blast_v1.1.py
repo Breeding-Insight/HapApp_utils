@@ -1,4 +1,12 @@
 #!/usr/bin/python3
+
+###############################################################################
+###	 @author: Dongyan Zhao
+###  @email: dongyan.zhao@ufl.edu
+###  @date: 03/30/2026
+###  Usage: db07_generate_ref_alt_sfetch_keys_from_blast_v1.1.py [-h] marker_lut blast length
+###############################################################################
+
 # Generate a key file for sfetch, then run the following
 # esl-sfetch -Cf [options] seqfile subseq-coord-file
 # (retrieve multiple subsequences using file of keys and coords)

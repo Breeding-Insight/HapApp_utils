@@ -1,5 +1,12 @@
 #!/usr/bin/python3
 
+###############################################################################
+###	 @author: Dongyan Zhao
+###  @email: dongyan.zhao@ufl.edu
+###  @date: 03/30/2026
+###  Usage: db05_determine_alleleOri_from_blast_AND_update_f180bp_v1.py [-h] blast fastaDB
+###############################################################################
+
 def rev_complement(seq):
     complement = {'A': 'T', 'C': 'G', 'G': 'C', 'T': 'A', '-':'-'}
     # IUPAC codes and their complements in a dict

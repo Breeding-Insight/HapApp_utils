@@ -1,4 +1,11 @@
 #!/usr/bin/env python3
+
+###############################################################################
+###	 @author: Dongyan Zhao
+###  @email: dongyan.zhao@ufl.edu
+###  @date: 03/30/2026
+###  Usage: db00_prep_lut_from_probeDesign.py [-h] [--madc MADC] probe
+###############################################################################
 """
 Prepare a SNP‑lookup table (LUT) from a probe design file.
 
@@ -9,6 +16,7 @@ Features:
 • Small, well‑documented functions for easy debugging.
 • Progress messages prefix with [INFO].
 """
+
 from typing import Optional
 
 

@@ -1,4 +1,12 @@
 #!/bin/bash
+
+###############################################################################
+###	 @author: Dongyan Zhao
+###  @email: dongyan.zhao@ufl.edu
+###  @date: 03/30/2026
+###  Usage: bash 20260320-build01_species_refAlt_coreDB.bash
+##############################################################################
+
 # Note: There are often IUPAC codes in Ref and Alt alleles from MADC report, therefore, cannot be used directly to build core DB.
 #       Some DArTag panel creators also use IUPAC codes in the probe design file, therefore, cannot be used directly either.
 #       The safest way to build core Ref/Alt DB is to use the reference genome sequences

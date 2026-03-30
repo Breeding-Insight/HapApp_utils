@@ -1,5 +1,12 @@
 #!/usr/bin/python3
 
+###############################################################################
+###	 @author: Dongyan Zhao
+###  @email: dongyan.zhao@ufl.edu
+###  @date: 03/30/2026
+###  Usage: db02_update_snpID_in_madc_v1.py [-h] lut report
+###############################################################################
+
 def get_snpID_lut(lut):
     inp = open(lut, encoding='utf-8-sig')
     line = inp.readline()

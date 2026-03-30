@@ -1,5 +1,12 @@
 #!/usr/bin/python3
 
+###############################################################################
+###	 @author: Dongyan Zhao
+###  @email: dongyan.zhao@ufl.edu
+###  @date: 03/30/2026
+###  Usage: step05_parse_madc_allele81bp_blastn_v1.py [-h] [--read_col READ_COL] [--cov_threshold COV_THRESHOLD] [--iden_threshold IDEN_THRESHOLD] db_allele_cnt_inp db_allele_fasta report blast seq_len
+###############################################################################
+
 def get_db_allele_fasta(db_allele_fasta, seq_len):
     db_fasta = {}
     seq_id = ''

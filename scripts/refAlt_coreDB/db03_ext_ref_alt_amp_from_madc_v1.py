@@ -1,5 +1,13 @@
 #!/usr/bin/python3
 
+
+###############################################################################
+###	 @author: Dongyan Zhao
+###  @email: dongyan.zhao@ufl.edu
+###  @date: 03/30/2026
+###  Usage: db03_ext_ref_alt_amp_from_madc_v1.py [-h] report
+###############################################################################
+
 def ext_ref_alt_amplicon_seq(report):
     inp = open(report)
     line = inp.readline()

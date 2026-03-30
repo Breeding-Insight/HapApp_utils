@@ -1,4 +1,12 @@
 #!/bin/bash
+
+###############################################################################
+###	 @author: Dongyan Zhao
+###  @email: dongyan.zhao@ufl.edu
+###  @date: 03/30/2026
+###  Usage: bash 20260320-build02_species_madc_haps.bash
+###############################################################################
+
 # Base db was already generated for REF and ALT alleles
 
 # Note: change here ###### The readme file should be one version above the current db version

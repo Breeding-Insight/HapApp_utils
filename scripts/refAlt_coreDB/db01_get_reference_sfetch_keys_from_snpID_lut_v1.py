@@ -1,4 +1,13 @@
 #!/usr/bin/env python3
+
+###############################################################################
+###	 @author: Dongyan Zhao
+###  @email: dongyan.zhao@ufl.edu
+###  @date: 03/30/2026
+###  Usage: db01_get_reference_sfetch_keys_from_snpID_lut_v1.py [-h] [--lut LUT] [--chr_len CHR_LEN] [--flankBP FLANKBP] [--madc MADC]
+###############################################################################
+
+
 # Generate a key file for esl-sfetch (-Cf mode) from a marker LUT,
 # optionally filtering markers by IDs listed in a MADC file.
 #

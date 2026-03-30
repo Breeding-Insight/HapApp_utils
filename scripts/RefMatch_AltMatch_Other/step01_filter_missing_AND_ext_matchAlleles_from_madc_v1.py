@@ -1,4 +1,12 @@
 #!/usr/bin/env python3
+
+###############################################################################
+###	 @author: Dongyan Zhao
+###  @email: dongyan.zhao@ufl.edu
+###  @date: 03/30/2026
+###  Usage: step01_filter_missing_AND_ext_matchAlleles_from_madc_v1.py [-h] report
+###############################################################################
+
 """
 Extract RefMatch and AltMatch microhap alleles into a FASTA file
 and assign temporary names in the report.

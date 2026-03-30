@@ -1,5 +1,12 @@
 #!/usr/bin/python3
 
+###############################################################################
+###	 @author: Dongyan Zhao
+###  @email: dongyan.zhao@ufl.edu
+###  @date: 03/30/2026
+###  Usage: step00_check_allele_uniqueness.py [-h] madc first_sample_column
+###############################################################################
+
 def write_to_output(outf, header, allele_dict):
     outp = open(outf, 'w')
     outp.write(header)

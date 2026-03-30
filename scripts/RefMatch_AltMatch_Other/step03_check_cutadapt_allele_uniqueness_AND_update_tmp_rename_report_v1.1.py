@@ -1,5 +1,12 @@
 #!/usr/bin/python3
 
+###############################################################################
+###	 @author: Dongyan Zhao
+###  @email: dongyan.zhao@ufl.edu
+###  @date: 03/30/2026
+###  Usage: step03_check_cutadapt_allele_uniqueness_AND_update_tmp_rename_report_v1.1.py [-h] cutadapt_fasta refAlt_81bp tmp_rename_report
+###############################################################################
+
 def determine_allele_status(cutadapt_fasta):
     from Bio import SeqIO
     # Loop through the RefMatch and AltMatch alleles after removing adapters

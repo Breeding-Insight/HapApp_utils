@@ -1,5 +1,12 @@
 #!/usr/bin/python3
 
+###############################################################################
+###	 @author: Dongyan Zhao
+###  @email: dongyan.zhao@ufl.edu
+###  @date: 03/30/2026
+###  Usage: db01_prep_ref_alt_flankSeq_from_lut_v1.py [-h] [--snpID_lut SNPID_LUT] [--flankSeq FLANKSEQ] [--flank_len FLANK_LEN]
+###############################################################################
+
 def get_ref_alt_bases(markerIDs):
     '''
     Added this function to consider the case of Indels

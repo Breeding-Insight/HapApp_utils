@@ -1,5 +1,12 @@
 #!/usr/bin/python3
 
+###############################################################################
+###	 @author: Dongyan Zhao
+###  @email: dongyan.zhao@ufl.edu
+###  @date: 03/30/2026
+###  Usage: step06_check_db_allele_uniqueness_v1.py [-h] db_fasta
+###############################################################################
+
 def determine_allele_status(db_fasta):
     from Bio import SeqIO
     # Loop through the RefMatch and AltMatch alleles after removing adapters
