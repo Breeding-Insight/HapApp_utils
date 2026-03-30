@@ -24,3 +24,6 @@
 *.ann
 *.pac
 
+
+.DS_Store
+.idea/
