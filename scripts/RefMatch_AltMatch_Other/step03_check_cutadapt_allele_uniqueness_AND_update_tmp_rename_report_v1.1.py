@@ -1,12 +1,5 @@
 #!/usr/bin/python3
 
-###############################################################################
-###	 @author: Dongyan Zhao
-###  @email: dongyan.zhao@ufl.edu
-###  @date: 03/30/2026
-###  Usage: step03_check_cutadapt_allele_uniqueness_AND_update_tmp_rename_report_v1.1.py [-h] cutadapt_fasta refAlt_81bp tmp_rename_report
-###############################################################################
-
 def determine_allele_status(cutadapt_fasta):
     from Bio import SeqIO
     # Loop through the RefMatch and AltMatch alleles after removing adapters
@@ -62,7 +55,7 @@ def concat_duplicate_allele_readCount(tmp_rename_report, dup_alleles_lists):
     
     # Convert the dict to a dataframe
     df_concat = pd.DataFrame(concat_list)
-    cloneID_series = df_concat['AlleleID'].str.split('|', 1).str[0] # Add cloneID column
+    cloneID_series = df_concat['AlleleID'].astype(str).str.partition('|').iloc[:, 0] # Add cloneID column
     df_concat.insert(0, 'CloneID', cloneID_series)
     df_concat = df_concat.set_index('AlleleID')
 
