@@ -79,6 +79,7 @@ FLANK_SFETCH=${SNPID_LUT%????}'_f'$FLANK_LEN'bp_sfetchKeys.txt'
 
 
 printf '\n# 4). Fetch flanking sequences'
+esl-sfetch --index REF_GENOME
 FLANK_SEQ=${SNPID_LUT%????}'_f'$FLANK_LEN'bp_sfetchKeys.fa'
 esl-sfetch -Cf $REF_GENOME $FLANK_SFETCH > $FLANK_SEQ
 
@@ -159,21 +160,26 @@ $TMP \
 
 MMSEQS_OUT_ALLSEQS=${REPORT%????}'_snpID_ref_alt_amplicons.fa.f'$FLANK_LEN'bp_rev_'$REF_LEN'bp_sfetch_ref_only_dupTag_all_seqs.fasta'
 MMSEQS_OUT_REPSEQS=${REPORT%????}'_snpID_ref_alt_amplicons.fa.f'$FLANK_LEN'bp_rev_'$REF_LEN'bp_sfetch_ref_only_dupTag_rep_seq.fasta'
+MMSEQS_OUT_CLUSTER=${REPORT%????}'_snpID_ref_alt_amplicons.fa.f'$FLANK_LEN'bp_rev_'$REF_LEN'bp_sfetch_ref_only_dupTag_cluster.tsv'
 
 
 printf '\n  # Extract highly similar non-self-pairing pairs'
-MMSEQS_OUT_CLUSTER=${REPORT%????}'_snpID_ref_alt_amplicons.fa.f'$FLANK_LEN'bp_rev_'$REF_LEN'bp_sfetch_ref_only_dupTag_cluster.tsv'
 MMSEQS_OUT_CLUSTER_NONSELF=${REPORT%????}'_snpID_ref_alt_amplicons.fa.f'$FLANK_LEN'bp_rev_'$REF_LEN'bp_sfetch_ref_only_dupTag_cluster_nonSelf.tsv'
 awk '$1!=$2' $MMSEQS_OUT_CLUSTER > $MMSEQS_OUT_CLUSTER_NONSELF
 
-printf '\n  # Check is the non-self-pairing file is empty'
+printf '\n  # Check if the non-self-pairing file is empty'
 if [ ! -s "$MMSEQS_OUT_CLUSTER_NONSELF" ]; then
-    printf "# File is empty."
-    rm $MMSEQS_OUT_CLUSTER_NONSELF
+    printf "\n  # File is empty."
+    rm -rf "$TMP"
+    rm -f "$SFETCH_FA_REF"
+    rm -f "$MMSEQS_OUT_CLUSTER"
+    rm -f "$MMSEQS_OUT_CLUSTER_NONSELF"
+    rm -f "$MMSEQS_OUT_ALLSEQS"
+    rm -f "$MMSEQS_OUT_REPSEQS"
 
-    printf '\n# 13) Copy allele fasta and match count lut to db directory\n'
+    printf '\n\n# 13) Copy allele fasta and match count lut to db directory\n'
     cp $SFETCH_FA $ALLELE_DB_DIR/$ALLELE_DB
-    cp $MATCHCNT_LUT $ALLELE_DB_DIR/$MATCH_CNT
+    cp $REPORT_ID_MATCHCNT $ALLELE_DB_DIR/$MATCH_CNT
 
 
     printf '\n# 14) Make blastdb\n'
@@ -205,11 +211,6 @@ else
     printf '\n# 14) Make blastdb\n'
     makeblastdb -in $ALLELE_DB_DIR/$ALLELE_DB -dbtype nucl
 
-    rm -rf $TMP
-    rm -f $MMSEQS_OUT_ALLSEQS
-    rm -f $MMSEQS_OUT_REPSEQS
+    rm -f "$MMSEQS_OUT_ALLSEQS"
+    rm -f "$MMSEQS_OUT_REPSEQS"
 fi
-
-
-
-

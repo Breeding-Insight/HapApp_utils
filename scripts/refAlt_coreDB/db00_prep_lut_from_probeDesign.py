@@ -21,21 +21,68 @@ from typing import Optional
 
 
 # ----------------------------------------------------------------------
-def get_panel_marker_ids(madc_path: str):
+def get_panel_marker_ids(madc_path, probe):
     """
     Read a MADC report and return a list of panel marker IDs.
     Lines beginning with '#', '*', or the header 'AlleleID' are ignored.
     """
-    panel_markers = []
+    # Generate a dictionary of panel marker IDs as keys, chr_pos as values
+    markerID_lut = {}
+    delimiter = '\t' if probe.endswith('.txt') else ','
+    with open(probe, 'r', encoding='utf-8') as fp:
+        for line in fp:
+            if line.startswith('MarkerName') or line.startswith('Marker Name'):
+                continue
+
+            line_array = line.strip().split(delimiter)
+            chr_pos = f"{line_array[3].strip()}_{line_array[4].strip().zfill(9)}"
+            markerID_lut[line_array[0]] = chr_pos
+
+
+    panel_markers = {}
+    # Chr11_066551564 ['Chr11_66551564', 109, 'Chr11_66551564_112to113cM_dentatamollissimaancestry', 81]
     with open(madc_path, 'r', encoding='utf-8') as fp:
         for line in fp:
-            if line.startswith('#') or line.startswith('*') or \
-               line.startswith('AlleleID'):
+            if line.startswith('#') or line.startswith('*') or line.startswith('AlleleID'):
                 continue
-            panel_markers.append(line.strip().split(',')[1])
-    print('[INFO] Number of markers in the panel:', len(panel_markers))
-    print('[INFO] First 5 markers:', panel_markers[:5])
-    return panel_markers
+
+            line_array = line.strip().split(',')
+            if line_array[0].endswith('|Ref'):
+                if line_array[1] in markerID_lut:
+                    chr_pos = markerID_lut[line_array[1]]
+                    if chr_pos in panel_markers:
+                        panel_markers[chr_pos].append(line_array[1])
+                        panel_markers[chr_pos].append(str(len(line_array[2])))
+                    else:
+                        panel_markers[chr_pos] = [line_array[1], str(len(line_array[2]))]
+                else:
+                    print(f"[INFO] {line_array[1]} not in probe design file")
+
+    madc_markers_rmDup = []
+    outp = open(probe.replace('.txt', '_dup.csv').replace('.csv', '_dup.csv'), 'w')
+    dup_cnt = 0
+    for key, value in panel_markers.items():
+        if len(value) > 2:
+            print("[INFO] Duplicate markers with the same anchor variant: ", key, value)
+            outp.write(key + ", " + ", ".join(value) + "\n")
+            dup_cnt += 1
+            index = 0
+            max_len_seq = 0
+
+            while index < len(value) - 1:
+                if int(value[index + 1]) > max_len_seq:
+                    max_len_seq = int(value[index + 1])
+                    max_len_seq_ID = value[index]
+                else:
+                    pass
+                index += 2
+            madc_markers_rmDup.append(max_len_seq_ID)
+        else:
+            madc_markers_rmDup.append(value[0])
+    outp.close()
+    print('[INFO] Number of anchor variants with different marker names (Duplicate markers):', dup_cnt)
+    print('[INFO] Number of unique markers in the panel:', len(panel_markers))
+    return madc_markers_rmDup
 
 
 # ----------------------------------------------------------------------
@@ -50,17 +97,13 @@ def write_lut_header(out_fp: str, delimiter: str):
 
 
 # ----------------------------------------------------------------------
-def prepare_lut(
-        probe_path: str,
-        panel_markers: Optional[list]
-    ) -> int:
+def prepare_lut(probe_path: str, panel_markers: Optional[list]) -> int:
     """
     Build the LUT from <probe_path>.
 
     Returns the number of entries written.
     """
-    out_path = probe_path.replace('.txt', '_snpID_lut.csv') \
-        .replace('.csv', '_snpID_lut.csv')
+    out_path = probe_path.replace('.txt', '_snpID_lut.csv').replace('.csv', '_snpID_lut.csv')
     delimiter = '\t' if probe_path.endswith('.txt') else ','
 
     write_lut_header(out_path, delimiter)
@@ -78,16 +121,17 @@ def prepare_lut(
                 continue
 
             # Build Bi‑marker and positional fields
-            bi_marker_id = f"{parts[3].strip()}_{parts[4].strip().zfill(9)}"
             chrom = parts[3].strip()
-            pos   = parts[4].strip()
+            pos = parts[4].strip()
+            bi_marker_id = f"{chrom}_{pos.zfill(9)}"
+
 
             # Variant definition: REF/ALT
             var_def   = parts[5].strip().strip('[]').split('/')
             ref, alt  = var_def[0].strip(), var_def[1].strip()
 
             var_type = parts[6].strip()
-            priority = parts[7].strip()
+            priority = parts[7].strip() if len(parts) > 7 else ''
             note     = parts[8].strip() if len(parts) > 8 else ''
 
             indel_pos = 'check_indel_pos' if 'indel' in var_type.lower() else ''
@@ -109,12 +153,13 @@ if __name__ == "__main__":
     import argparse
 
     parser = argparse.ArgumentParser(description="Build a SNP LUT from probe design file")
-    parser.add_argument(
-        "--madc", "-m",
-        help="Raw MADC report (optional). If omitted, all markers in probe are used."
-    )
+    parser.add_argument("--madc", "-m",
+        help="Raw MADC report (optional). If omitted, all markers in probe are used.")
+
     parser.add_argument("probe", help="Probe design file (.txt or .csv)")
+
     args = parser.parse_args()
 
-    panel_markers = get_panel_marker_ids(args.madc) if args.madc else None
+    panel_markers = get_panel_marker_ids(args.madc, args.probe) if args.madc else None
+
     prepare_lut(args.probe, panel_markers)
