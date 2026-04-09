@@ -32,7 +32,6 @@ def get_flankSeq(flankSeq):
     line = inp.readline()
     flank = {}
     seq = ''
-    markerID = None
     while line:
         if line.startswith('>'):
             if seq != '':
@@ -44,8 +43,6 @@ def get_flankSeq(flankSeq):
         else:
             seq += line.strip()
         line = inp.readline()
-    if markerID is None:
-        raise ValueError(f'Input flank sequence file is not valid FASTA or contains no records: {flankSeq}')
     # Last sequence
     flank[markerID] = seq.upper()
     inp.close()

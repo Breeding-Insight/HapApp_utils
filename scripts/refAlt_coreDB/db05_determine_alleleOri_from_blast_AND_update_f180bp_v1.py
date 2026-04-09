@@ -22,16 +22,9 @@ def get_rev_compliment_fasta(fastaDB, alleles):
     line = inp.readline()
     plus_count = 0
     minus = []
-    missing_keys = []
     while line:
         if line.startswith('>'):
-            allele_key = line[1:].strip()
-            if allele_key not in alleles:
-                missing_keys.append(allele_key)
-                line = inp.readline()
-                continue
-
-            if alleles[allele_key][-1] == '-':
+            if alleles[line[1:].strip()][-1] == '-':
                 # Add the markers on minus strand of the reference genome to a list
                 marker = line.split('|')[0][1:]
                 if marker not in minus:
@@ -52,9 +45,6 @@ def get_rev_compliment_fasta(fastaDB, alleles):
         line = inp.readline()
     print('  # Number of marker loci on PLUS strand: ', int(plus_count/2))
     print('  # Number of marker loci on MINUS strand: ', len(minus))
-    if missing_keys:
-        print('  # Number of allele records with no orientation assignment: ', len(missing_keys))
-        print('  # First missing allele IDs:', missing_keys[:5])
     for marker in minus:
         outp_botloci.write(marker + '\n')
 
@@ -108,11 +98,6 @@ def ext_unique_hits_for_queries(blast):
         line = inp.readline()
     inp.close()
     print('  # Number of Ref and Alt alleles: ', len(alleles))
-    if len(alleles) == 0:
-        raise ValueError(
-            'No matching BLAST hits were found where query and subject allele IDs agree. '
-            'Check whether the BLAST query FASTA was generated from the SNP-ID-updated MADC report.'
-        )
     return(alleles)
 
 
