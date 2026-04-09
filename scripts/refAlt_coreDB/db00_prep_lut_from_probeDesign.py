@@ -26,7 +26,7 @@ def get_panel_marker_ids(madc_path, probe):
     Read a MADC report and return a list of panel marker IDs.
     Lines beginning with '#', '*', or the header 'AlleleID' are ignored.
     """
-    # Generate a dictionary of panel marker IDs as keys, chr_pos as values
+    # Generate a dictionary of panel marker IDs as keys, chr_pos as values from probe design file
     markerID_lut = {}
     delimiter = '\t' if probe.endswith('.txt') else ','
     with open(probe, 'r', encoding='utf-8') as fp:
@@ -39,7 +39,10 @@ def get_panel_marker_ids(madc_path, probe):
             markerID_lut[line_array[0]] = chr_pos
 
 
+    # Loop through MADC to get the allele lengths for markers
+    # Put Ref and Alt sequences in a dictionary
     panel_markers = {}
+    refAlt = {}
     # Chr11_066551564 ['Chr11_66551564', 109, 'Chr11_66551564_112to113cM_dentatamollissimaancestry', 81]
     with open(madc_path, 'r', encoding='utf-8') as fp:
         for line in fp:
@@ -48,6 +51,7 @@ def get_panel_marker_ids(madc_path, probe):
 
             line_array = line.strip().split(',')
             if line_array[0].endswith('|Ref'):
+                refAlt[line_array[1]] = [line_array[:3]]
                 if line_array[1] in markerID_lut:
                     chr_pos = markerID_lut[line_array[1]]
                     if chr_pos in panel_markers:
@@ -57,6 +61,24 @@ def get_panel_marker_ids(madc_path, probe):
                         panel_markers[chr_pos] = [line_array[1], str(len(line_array[2]))]
                 else:
                     print(f"[INFO] {line_array[1]} not in probe design file")
+            elif line_array[0].endswith('|Alt'):
+                refAlt[line_array[1]].append(line_array[:3])
+
+    refAlt_identical = {}
+    for key, value in refAlt.items():
+        if value[0][2] == value[1][2]:
+            print(f"[WARNING] {key} has identical Ref and Alt sequences.")
+            refAlt_identical[key] = value
+
+
+    if len(refAlt_identical) != 0:
+        outp_refAlt_identical = open(madc_path.replace('.csv', '_identicalRefAlt.csv'), 'w')
+        outp_refAlt_identical.write('AlleleID,CloneID,AlleleSequence\n')
+        for key, value in refAlt_identical.items():
+            outp_refAlt_identical.write(','.join(value[0]) + '\n')
+            outp_refAlt_identical.write(','.join(value[1]) + '\n')
+        outp_refAlt_identical.close()
+        print('[INFO] Number of identical Ref and Alt sequences: ', len(refAlt_identical))
 
     madc_markers_rmDup = []
     outp = open(probe.replace('.txt', '_dup.csv').replace('.csv', '_dup.csv'), 'w')
@@ -79,9 +101,14 @@ def get_panel_marker_ids(madc_path, probe):
             madc_markers_rmDup.append(max_len_seq_ID)
         else:
             madc_markers_rmDup.append(value[0])
+
+    # "Keep i if i is NOT in the refAlt_identical set"
+    madc_markers_rmDup = [i for i in madc_markers_rmDup if i not in refAlt_identical]
+
     outp.close()
     print('[INFO] Number of anchor variants with different marker names (Duplicate markers):', dup_cnt)
-    print('[INFO] Number of unique markers in the panel:', len(panel_markers))
+    print('[INFO] Number of markers in probe design file:', len(panel_markers))
+    print('[INFO] Number of markers with valid Ref and Alt sequences:', len(madc_markers_rmDup))
     return madc_markers_rmDup
 
 

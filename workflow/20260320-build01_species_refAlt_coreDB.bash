@@ -95,7 +95,7 @@ makeblastdb -in $REF_ALT_FLANK -dbtype nucl
 
 
 printf '\n# 6). Extract amplicon sequences of Ref and Alt alleles from MADC report\n'
-python3 $SCRIPTS_DIR/db03_ext_ref_alt_amp_from_madc_v1.py $REPORT
+python3 $SCRIPTS_DIR/db03_ext_ref_alt_amp_from_madc_v1.py $REPORT_ID
 REF_ALT=${REPORT%????}'_ref_alt_amplicons.fa'
 
 
