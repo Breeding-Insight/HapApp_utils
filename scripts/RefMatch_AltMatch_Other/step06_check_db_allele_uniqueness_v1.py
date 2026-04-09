@@ -49,13 +49,10 @@ def remove_duplicate_alleles_in_db_fasta(db_fasta, remove_alleles):
     total_seq = subprocess.check_output(cmd, shell=True).strip().decode('ascii')
     import re
     import os
-    m = re.search(r'v(\d{3})', db_fasta)
-    if m:
-        version = int(m.group(1)) + 1
-        new_suffix = 'v' + str(version).zfill(3)
-        outf = re.sub(r'v\d{3}', new_suffix, db_fasta, count=1)
-    else:
-        raise ValueError(f'Could not determine version from db fasta: {db_fasta}')
+    db_fasta_array = re.split("[_|.]", db_fasta)
+    version = int(db_fasta_array[-2].replace('v', '')) + 1
+    new_suffix = '_v' + str(version).zfill(3)
+    outf = re.sub(r'_v\d+', new_suffix, db_fasta)
     outp = open(outf, 'w')
 
     # Don't need to update the allele_lut.txt
