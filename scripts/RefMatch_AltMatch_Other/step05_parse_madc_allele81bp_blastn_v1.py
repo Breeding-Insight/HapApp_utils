@@ -293,11 +293,13 @@ def generate_report_with_fixed_alleleID(report, tmp_rename_report, dbVStmp_allel
 
 def generate_new_db_lut(db_alleleCnt_lut_file, updated_db_allele_cnt, db_allele_cnt):
     import re
-    # alfalfa_allele_db_v1_alleleCnt_lut.txt
-    db_alleleCnt_lut_file_array = db_alleleCnt_lut_file.split('_')
-    version = int(db_alleleCnt_lut_file_array[-3].replace('v', '')) + 1
-    new_suffix = 'v' + str(version).zfill(3)
-    outf = re.sub(r'v\d{3}', new_suffix, db_alleleCnt_lut_file)
+    m = re.search(r'v(\d{3})', db_alleleCnt_lut_file)
+    if m:
+        version = int(m.group(1)) + 1
+        new_suffix = 'v' + str(version).zfill(3)
+        outf = re.sub(r'v\d{3}', new_suffix, db_alleleCnt_lut_file, count=1)
+    else:
+        raise ValueError(f'Could not determine version from allele count LUT: {db_alleleCnt_lut_file}')
     outp_lut = open(outf, 'w')
     for i in updated_db_allele_cnt.keys():
         if i in db_allele_cnt:
@@ -328,10 +330,12 @@ def update_db_allele_fasta(db_allele_fasta, new_alleles_fasta):
     import os
     def bump_version(path):
         dirname, filename = os.path.split(path)
-        m = re.search(r'(_)?v(\d{1,3})(?=\.(?:fa|fasta)$)', filename, flags=re.IGNORECASE)
+        # Only bump the database version suffix, e.g. "_v001.fa" or "_v001_indelsAdded.fa".
+        # Do not touch species/panel tokens such as "DCnutv2" earlier in the filename.
+        m = re.search(r'(_v)(\d{3})(?=(_|\.))', filename, flags=re.IGNORECASE)
         if m:
-            new_tag = f"_v{int(m.group(2)) + 1:03d}"
-            new_filename = re.sub(r'(_)?v\d{1,3}(?=\.(?:fa|fasta)$)', new_tag, filename, flags=re.IGNORECASE)
+            new_digits = f"{int(m.group(2)) + 1:03d}"
+            new_filename = f"{filename[:m.start(2)]}{new_digits}{filename[m.end(2):]}"
         else:
             base, ext = os.path.splitext(filename)
             new_filename = f"{base}_v001{ext}"
