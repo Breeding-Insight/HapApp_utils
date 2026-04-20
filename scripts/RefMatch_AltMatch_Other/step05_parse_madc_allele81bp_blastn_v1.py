@@ -212,25 +212,31 @@ def generate_report_with_fixed_alleleID(report, tmp_rename_report, dbVStmp_allel
     cols = tmp_rename_report['AlleleID']
     # tmp_rename_report: {alfalfaRep2vsXJDY1_shared_1029546|AltMatch_tmp_0001: [alfalfaRep2vsXJDY1_shared_1029546,CTTTCAGGATTGTCGATTTCCAAGCTGTTAGATTCACCACAGTGCATAATTAAAGTACTTCAAAACCACCAAATTTTAAAA,3230,0,25...]
     # dbVStmp_alleles_lut: {'chr3.1_078721100|RefMatch_0002': ['chr3.1_078721100|RefMatch_tmp_0003'] ...}
+    read_start = read_col - 2
     for i in dbVStmp_alleles_lut:
         if len(dbVStmp_alleles_lut[i]) > 1:
             dup_count += len(dbVStmp_alleles_lut[i])
             uniq_count += 1
             same_allele_seq = {}
+            keep_tmp_id = None
+            meta_info = None
             for j in dbVStmp_alleles_lut[i]:
                 if j in tmp_rename_report:
-                    same_allele_seq[j] = tmp_rename_report[j][:2] + list(map(float, tmp_rename_report[j][2:]))
-                    # 'AlleleID', 'CloneID', 'AlleleSequence'
-                    meta_info = tmp_rename_report[j][:2]
+                    if keep_tmp_id is None:
+                        keep_tmp_id = j
+                        meta_info = tmp_rename_report[j][:read_start]
+                    same_allele_seq[j] = list(map(float, tmp_rename_report[j][read_start:]))
                     dup.append([i, j] + tmp_rename_report[j])
                     del tmp_rename_report[j]
                     del tmpVSdb_alleles_lut[j]
                 else:
                     print(' [INFO] This allele does not exist in temporary report: ', j)
-            df = pd.DataFrame.from_dict(same_allele_seq, orient='index', columns=cols)
-            combined = meta_info + list(map(str, df.sum()[2:]))
-            dup.append([i, 'combined'] + combined)
-            tmp_rename_report[df.index[0]] = combined
+            if same_allele_seq:
+                df = pd.DataFrame.from_dict(same_allele_seq, orient='index')
+                combined = meta_info + list(map(str, df.sum(axis=0)))
+                dup.append([i, 'combined'] + combined)
+                tmp_rename_report[keep_tmp_id] = combined
+                tmpVSdb_alleles_lut[keep_tmp_id] = i
         else:
             pass
 
@@ -245,7 +251,7 @@ def generate_report_with_fixed_alleleID(report, tmp_rename_report, dbVStmp_allel
         outp_report = open(report.replace('tmp_rename_updatedSeq', 'rename_updatedSeq'), 'w')
         if len(dup) > 0:
             outp_dup = open(report.replace('tmp_rename_updatedSeq', 'rename_updatedSeq_dup'), 'w')
-            outp_dup.write('AlleleID' + ',' + ','.join(tmp_rename_report['AlleleID']) + '\n')
+            outp_dup.write('AlleleID,TemporaryAlleleID,' + ','.join(tmp_rename_report['AlleleID']) + '\n')
             for i in dup:
                 outp_dup.write(','.join(i) + '\n')
         else:
@@ -254,7 +260,7 @@ def generate_report_with_fixed_alleleID(report, tmp_rename_report, dbVStmp_allel
         outp_report = open(report.replace('tmp_rename', 'rename'), 'w')
         if len(dup) > 0:
             outp_dup = open(report.replace('tmp_rename', 'rename_dup'), 'w')
-            outp_dup.write('AlleleID' + ',' + ','.join(tmp_rename_report['AlleleID']) + '\n')
+            outp_dup.write('AlleleID,TemporaryAlleleID,' + ','.join(tmp_rename_report['AlleleID']) + '\n')
             for i in dup:
                 outp_dup.write(','.join(i) + '\n')
         else:
