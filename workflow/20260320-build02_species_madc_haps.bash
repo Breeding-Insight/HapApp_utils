@@ -1,4 +1,5 @@
 #!/bin/bash
+#set -e This flag causes the pipeline to stop if any command line errors are detected
 
 ###############################################################################
 ###	 @author: Dongyan Zhao
@@ -11,8 +12,8 @@
 
 # Note: change here ###### The readme file should be one version above the current db version
 # If no new alleles are found, give the readme file another name
-PROCESS_README='../data/DCnutv2_allele_db_v002_process.readme'
-NO_NEW_ALLELE_README='../data/DCnutv2_allele_db_v001_report_noNewAllele.readme'
+PROCESS_README='../data/DCnutv2_allele_db_v003_process.readme'
+NO_NEW_ALLELE_README='../data/DCnutv2_allele_db_v003_report_noNewAllele.readme'
 exec &> "$PROCESS_README"
 
 # Scripts and files
@@ -20,11 +21,11 @@ SCRIPTS_DIR='../scripts/RefMatch_AltMatch_Other'
 CODE_VER='v1'
 SNPID_LUT='../data/flankseq/chestnut_DArTag-probe-design-v2_type_snpID_lut.csv'
 ALLELE_DB_DIR='../data'
-ALLELE_DB_BASE='DCnutv2_allele_db_v001.fa'
-MATCHCNT_LUT_BASE='DCnutv2_allele_db_v001_matchCnt_lut.txt'
-ALLELE_DB_INDEL='DCnutv2_allele_db_v001_indelsAdded.fa'
-MATCHCNT_LUT_INDEL='DCnutv2_allele_db_v001_indelsAdded_matchCnt_lut.txt'
-REPORT='../data/genotyping_report/DCnut26-11629_MADC.csv'
+ALLELE_DB_BASE='DCnutv2_allele_db_v002.fa'
+MATCHCNT_LUT_BASE='DCnutv2_allele_db_v002_matchCnt_lut.txt'
+ALLELE_DB_INDEL='DCnutv2_allele_db_v002_indelsAdded.fa'
+MATCHCNT_LUT_INDEL='DCnutv2_allele_db_v002_indelsAdded_matchCnt_lut.txt'
+REPORT='../data/genotyping_report/DCnut25-10895_MADC.csv'
 FIRST_SAMPLE_COL=17
 #DUP_TAGS='../data/genotyping_report/DCnut24-9430_MADC_dupTags_to_remove.txt'
 
@@ -132,6 +133,10 @@ python3 "$SCRIPTS_DIR/step01_filter_missing_AND_ext_matchAlleles_from_madc_v1.py
 # The output of this step is a temporary report file with renamed marker IDs and RefMatch and AltMatch allele fasta files
 TMP_RENAME=${REPORT_SNPID%????}'_tmp_rename.csv'
 MATCH_ALLELES=${REPORT_SNPID%????}'_match.fa'
+MATCH_ALLELES_V1=${REPORT_SNPID%????}'_match_v1.fa'
+MATCH_ALLELES_V2=${REPORT_SNPID%????}'_match_v2.fa'
+MATCH_ALLELES_BLAST=$MATCH_ALLELES
+MIXED_MARKER_VERSIONS=false
 
 
 printf "\n#  4). Remove adapters using cutadapt"
@@ -141,7 +146,64 @@ printf "\n#  4). Remove adapters using cutadapt"
 #                        Require MINLENGTH overlap between read and adapter for an adapter to be found.
 #                        Default: 3
 # -a ACCGATCTCGTATGCCGTCTTCTGCTTG
-if [ $DESIGN_LEN -ge $SEQ_LEN ]; then
+if python3 "$SCRIPTS_DIR/step02_split_match_fasta_by_marker_version_v1.py" "$SNPID_LUT" "$MATCH_ALLELES"; then
+    MIXED_MARKER_VERSIONS=true
+    printf "\n  # Mixed v1/v2 marker versions detected. Only v1 markers will be checked with cutadapt.\n"
+    SPLIT_STATUS=0
+else
+    SPLIT_STATUS=$?
+fi
+
+if [[ $SPLIT_STATUS -eq 2 ]]; then
+    printf "\n  # No mixed v1/v2 marker versions detected. Use original cutadapt workflow.\n"
+elif [[ $SPLIT_STATUS -ne 0 ]]; then
+    printf "\n  # Failed to split match FASTA by marker version.\n"
+    exit $SPLIT_STATUS
+fi
+
+if [[ "$MIXED_MARKER_VERSIONS" == "true" ]]; then
+    V1_FINAL_FASTA=$MATCH_ALLELES_V1
+    if [ $DESIGN_LEN -ge $SEQ_LEN ]; then
+        printf "\n  # Design length is greater than or equal to sequencing length. No need to run adaptor checking\n"
+    else
+        printf "\n  # Sequencing length is longer than panel design length, run cutadapt on v1 markers only\n"
+        CUTADAPT=${REPORT_SNPID%????}'_match_v1_cutadapt.fa'
+        CUT_LOG=${REPORT_SNPID%????}'_match_v1_cutadapt.log'
+        CUTADAPT_BIN=${CUTADAPT_BIN:-$(command -v cutadapt)}
+        if [[ -z "${CUTADAPT_BIN}" ]]; then
+            printf "\n  # cutadapt not found in PATH. Set CUTADAPT_BIN or install cutadapt.\n"
+            exit 1
+        fi
+        if [[ ! -s "$MATCH_ALLELES_V1" ]]; then
+            printf "\n  # v1 match allele fasta not found or empty: %s\n" "$MATCH_ALLELES_V1"
+            exit 1
+        fi
+        "$CUTADAPT_BIN" -a ACCGATCTG -e 0.2 -n 1 --overlap 5 -m $DESIGN_LEN -o "$CUTADAPT" "$MATCH_ALLELES_V1" > "$CUT_LOG" 2>&1
+        if [[ ! -f "$CUTADAPT" ]]; then
+            printf "\n  # cutadapt did not produce output fasta: %s\n" "$CUTADAPT"
+            printf "\n  # Check cutadapt log: %s\n" "$CUT_LOG"
+            exit 1
+        fi
+        MATCH=$(grep -c ">" "$MATCH_ALLELES_V1")
+        MATCH_CUT=$(grep -c ">" "$CUTADAPT")
+        printf "\n    # Number of v1 RefMatch and AltMatch extracted from MADC: $MATCH"
+        printf "\n    # Number of v1 RefMatch and AltMatch retained after cutadapt: $MATCH_CUT\n"
+
+        printf "\n#  5). Check if there are duplicate alleles after removing adapters AND update allele sequences and read counts\n"
+        printf "  # CUTADAPT file: $CUTADAPT\n"
+        printf "  # Temporary rename file: $TMP_RENAME\n"
+        python3 "$SCRIPTS_DIR/step03_check_cutadapt_allele_uniqueness_AND_update_tmp_rename_report_v1.1.py" "$CUTADAPT" "$ALLELE_DB_DIR/$ALLELE_DB" "$TMP_RENAME"
+        CUTADAPT_UNI=${REPORT_SNPID%????}'_match_v1_cutadapt_unique.fa'
+        TMP_RENAME_UPDATED=${REPORT_SNPID%????}'_tmp_rename_updatedSeq.csv'
+        if test -f "$CUTADAPT_UNI"; then
+            V1_FINAL_FASTA=$CUTADAPT_UNI
+        else
+            V1_FINAL_FASTA=$CUTADAPT
+        fi
+    fi
+    MATCH_ALLELES_BLAST=${REPORT_SNPID%????}'_match_v1cutadapt_v2uncut.fa'
+    python3 "$SCRIPTS_DIR/step04_concat_v1_cutadapt_v2_uncut_fasta_v1.py" "$V1_FINAL_FASTA" "$MATCH_ALLELES_V2" "$MATCH_ALLELES_BLAST"
+elif [ $DESIGN_LEN -ge $SEQ_LEN ]; then
     printf "\n  # Design length is greater than or equal to sequencing length. No need to run adaptor checking\n"
 else
     printf "\n  # Sequencing length is longer than panel design length, run cutadapt\n"
@@ -189,22 +251,23 @@ printf "\n#  6b). BLAST RefMatch and AltMatch against the allele db\n"
 # If there are no duplicate alleles, there won't be the a '_match_cutadapt_unique.fa'
 # There won't be a '_tmp_rename_updatedSeq.csv' either
 # Here, use if else to execute different input files.
-if test -f "$CUTADAPT"; then
+if [[ "$MIXED_MARKER_VERSIONS" == "true" ]]; then
+    BLAST_QUERY=$MATCH_ALLELES_BLAST
+elif test -f "$CUTADAPT"; then
     if test -f "$CUTADAPT_UNI"; then
-      BLAST_DBBLAST=${REPORT_SNPID%????}'_match_cutadapt_unique.fa.alleledb.bn'
-      blastn -task blastn-short -dust no -soft_masking false -db "$ALLELE_DB_DIR/$ALLELE_DB" -query "$CUTADAPT_UNI" -out "$BLAST_DBBLAST" -evalue 1e-5 -num_threads 6 -max_target_seqs 15 -outfmt '6 qseqid qlen qstart qend sseqid slen sstart send length qcovs pident evalue'
+      BLAST_QUERY=$CUTADAPT_UNI
     else
-      BLAST_DBBLAST=${REPORT_SNPID%????}'_match_cutadapt.fa.alleledb.bn'
-      blastn -task blastn-short -dust no -soft_masking false -db "$ALLELE_DB_DIR/$ALLELE_DB" -query "$CUTADAPT" -out "$BLAST_DBBLAST" -evalue 1e-5 -num_threads 6 -max_target_seqs 15 -outfmt '6 qseqid qlen qstart qend sseqid slen sstart send length qcovs pident evalue'
+      BLAST_QUERY=$CUTADAPT
     fi
 else
-    BLAST_DBBLAST=${REPORT_SNPID%????}'_match.fa.alleledb.bn'
-    blastn -task blastn-short -dust no -soft_masking false -db "$ALLELE_DB_DIR/$ALLELE_DB" -query "$MATCH_ALLELES" -out "$BLAST_DBBLAST" -evalue 1e-5 -num_threads 6 -max_target_seqs 15 -outfmt '6 qseqid qlen qstart qend sseqid slen sstart send length qcovs pident evalue'
+    BLAST_QUERY=$MATCH_ALLELES
 fi
+BLAST_DBBLAST=$BLAST_QUERY'.alleledb.bn'
+blastn -task blastn-short -dust no -soft_masking false -db "$ALLELE_DB_DIR/$ALLELE_DB" -query "$BLAST_QUERY" -out "$BLAST_DBBLAST" -evalue 1e-5 -num_threads 6 -max_target_seqs 15 -outfmt '6 qseqid qlen qstart qend sseqid slen sstart send length qcovs pident evalue'
 
 
 printf "\n#  7). Determine status of RefMatch and AltMatch and Assign fixed IDs to them\n"
-if test -f "$CUTADAPT_UNI"; then
+if test -f "$TMP_RENAME_UPDATED"; then
     python3 "$SCRIPTS_DIR/step05_parse_madc_allele81bp_blastn_v1.py" "$ALLELE_DB_DIR/$MATCHCNT_LUT" "$ALLELE_DB_DIR/$ALLELE_DB" "$TMP_RENAME_UPDATED" "$BLAST_DBBLAST" "$SEQ_LEN" --cov_threshold "$COV" --iden_threshold "$IDEN"
     MADC_CLEANED=${REPORT_SNPID%????}'_rename_updatedSeq.csv'
 else
@@ -240,7 +303,7 @@ if test -f "$ALLELE_DB_DIR/$ALLELE_DB_NEW"; then
         printf "  # There are duplicate alleles in db. Check if these duplicate alleles are in MADC file.\n"
         python3 "$SCRIPTS_DIR/step06_update_MADC_with_allele_uniqueness_v1.py" "$DUP" "$MADC_CLEANED"
         printf "\n#  11). Add version of the script to the MADC with fixed allele IDs\n"
-        if test -f "$CUTADAPT_UNI"; then
+        if test -f "$TMP_RENAME_UPDATED"; then
             MADC_CLEANED_RMDUP=${REPORT_SNPID%????}'_rename_updatedSeq_rmDup.csv'
             MADC_CLEANED_RMDUP_VER=${REPORT_SNPID%????}'_rename_updatedSeq_rmDup_'$CODE_VER'.csv'
         else
@@ -252,7 +315,7 @@ if test -f "$ALLELE_DB_DIR/$ALLELE_DB_NEW"; then
         printf "  # No duplicate alleles found in microhap db\n"
         echo $ALLELE_DB_DIR/$ALLELE_DB_NEW
         printf "\n#  11). Add version of the script to the MADC with fixed allele IDs\n"
-        if test -f "$CUTADAPT_UNI"; then
+        if test -f "$TMP_RENAME_UPDATED"; then
             MADC_CLEANED_VER=${REPORT_SNPID%????}'_rename_updatedSeq_'$CODE_VER'.csv'
         else
             MADC_CLEANED_VER=${REPORT_SNPID%????}'_rename_'$CODE_VER'.csv'
