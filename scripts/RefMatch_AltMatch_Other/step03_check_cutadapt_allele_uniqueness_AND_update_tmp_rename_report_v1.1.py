@@ -167,6 +167,13 @@ def update_tmp_rename_report(tmp_rename_report, remove_alleles, df_concat, refAl
             else:
                 pass
 
+        # Keep any remaining allele classes, such as "Other", after the RefMatch
+        # and AltMatch alleles. They match none of the tests above, so without
+        # this loop the reindex() below drops them from the updated report.
+        for i in idx_sorted:
+            if i != ref and i != alt and 'RefMatch' not in i and 'AltMatch' not in i:
+                index_ordered.append(i)
+
     df_ordered = df_update.reindex(index_ordered, axis=0)
     outf = tmp_rename_report.replace('.csv', '_updatedSeq.csv')
     df_ordered.to_csv(outf)
