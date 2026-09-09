@@ -11,23 +11,25 @@
 
 # Note: change here ###### The readme file should be one version above the current db version
 # If no new alleles are found, give the readme file another name
-PROCESS_README='./HapApp_utils/data/species_allele_db_v002_process.readme'
-NO_NEW_ALLELE_README='./HapApp_utils/data/species_allele_db_v001_report_noNewAllele.readme'
+PROCESS_README='/Users/dongyan.zhao/PycharmProjects/BI/chestnut_dartag_v2_00_microhaplotype_db/data/DCnutv2_allele_db_v003_process.readme'
+NO_NEW_ALLELE_README='/Users/dongyan.zhao/PycharmProjects/BI/chestnut_dartag_v2_00_microhaplotype_db/data/DCnutv2_allele_db_v002_DCnut26-11629_noNewAllele.readme'
 exec &> $PROCESS_README
 
 # Scripts and files
-SCRIPTS_DIR='./HapApp_utils/scripts/RefMatch_AltMatch_Other'
+CUTADAPT_PATH="/Library/Frameworks/Python.framework/Versions/3.9/bin/cutadapt"
+SCRIPTS_DIR='/Users/dongyan.zhao/PycharmProjects/BI/HapApp_utils/scripts/RefMatch_AltMatch_Other'
 CODE_VER='v1'
-SNPID_LUT='./HapApp_utils/data/flankseq/species_DArTag-probe-design_snpID_lut.csv'
-ALLELE_DB_DIR='./HapApp_utils/data'
-ALLELE_DB='species_allele_db_v001.fa'
-MATCHCNT_LUT='species_allele_db_v001_matchCnt_lut.txt'
-REPORT='./HapApp_utils/data/genotyping_report/species_MADC.csv'
+MARKERID_LUT='/Users/dongyan.zhao/Downloads/hap/chestnut_DArTag-probe-design-v2_type_snpID_lut.csv'
+ALLELE_DB_DIR='/Users/dongyan.zhao/PycharmProjects/BI/chestnut_dartag_v2_00_microhaplotype_db/data'
+ALLELE_DB='DCnutv2_allele_db_v002.fa'
+MATCHCNT_LUT='DCnutv2_allele_db_v002_matchCnt_lut.txt'
+REPORT='/Users/dongyan.zhao/Downloads/hap/DCnut26-11629_MADC.csv'
 FIRST_SAMPLE_COL=17
+LUT_INSERT_SIZE_COL='insert_size'
 
 # Marker panel information
-DESIGN_LEN=54
-SEQ_LEN=54
+DESIGN_LEN=81
+SEQ_LEN=109
 
 
 # BLAST thresholds
@@ -50,7 +52,7 @@ printf '# BLAST filtering thresholds: %s%% coverage, %s%% identity\n' "$COV" "$I
 printf "\n# 1). Update snpIDs to Chr_00xxxxxxx format in MADC"
 printf "\n  # This is necessary because marker IDs do not always follow the Chr_00xxxxxxx format\n"
 REPORT_SNPID=${REPORT%????}'_snpID.csv'
-python3 $SCRIPTS_DIR/step00_madc_update_snpID_v1.1.py $SNPID_LUT $REPORT
+python3 $SCRIPTS_DIR/step00_madc_update_snpID_v1.1.py $MARKERID_LUT $REPORT
 
 
 
@@ -64,14 +66,13 @@ else
     REPORT_RM_DUP=${REPORT%????}'_snpID_rmDup.csv'
     python3 $SCRIPTS_DIR/step00_rm_dupTag_closeTag_rawMADC_v1.py $DUP_TAGS $REPORT $REPORT_RM_DUP
     printf "\n  # MADC file with duplicate tags removed: $REPORT_RM_DUP\n"
-    REPORT=$REPORT_RM_DUP
+    REPORT_SNPID=$REPORT_RM_DUP
 fi
 
 
 printf "\n# 2). Check if there are any duplicate alleles - same microhaplotypes with different IDs"
 printf "\n  # If there are duplicates, output the duplicates and stop running the pipeline\n"
 # https://stackoverflow.com/questions/947897/how-to-comment-a-block-of-code-in-bash
-
 python3 $SCRIPTS_DIR/step00_check_allele_uniqueness.py $REPORT_SNPID $FIRST_SAMPLE_COL
 REPORT_SNPID_DUP=${REPORT%????}'_snpID_dup.csv'
 if test -f "$REPORT_SNPID_DUP"; then
@@ -83,7 +84,11 @@ fi
 
 
 printf "\n# 3). Filter alleles with missing data and generate RefMatch and AltMatch allele fasta and a temporary report\n"
-python3 $SCRIPTS_DIR/step01_filter_missing_AND_ext_matchAlleles_from_madc_v1.py $REPORT_SNPID
+if [ -n "${LUT_INSERT_SIZE_COL}" ]; then
+  python3 $SCRIPTS_DIR/step01_filter_missing_AND_ext_matchAlleles_from_madc_v1.py $REPORT_SNPID --lut "$MARKERID_LUT" --split_by_colID "$LUT_INSERT_SIZE_COL"
+else
+  python3 $SCRIPTS_DIR/step01_filter_missing_AND_ext_matchAlleles_from_madc_v1.py $REPORT_SNPID --lut "$MARKERID_LUT" --split_by_colID ""
+fi
 # The output of this step is a temporary report file with renamed marker IDs and RefMatch and AltMatch allele fasta files
 TMP_RENAME=${REPORT_SNPID%????}'_tmp_rename.csv'
 MATCH_ALLELES=${REPORT_SNPID%????}'_match.fa'
@@ -97,34 +102,65 @@ printf "\n#  4). Remove adapters using cutadapt"
 #                        Default: 3
 # -a ACCGATCTCGTATGCCGTCTTCTGCTTG
 if [ $DESIGN_LEN -ge $SEQ_LEN ]; then
-    printf "\n  # Design length is greater than or equal to sequencing length. No need to run adaptor checking\n"
+    printf "\n  # Design length is greater than or equal to sequencing length. No need to run cntadapt.\n"
 else
-    printf "\n  # Sequencing length is longer than panel design length, run cutadapt\n"
-    CUTADAPT=${REPORT_SNPID%????}'_match_cutadapt.fa'
-    CUT_LOG=${REPORT_SNPID%????}'_match_cutadapt.log'
-    /Users/dongyan.zhao/Library/Python/3.9/bin/cutadapt -a ACCGATCTG -e 0.2 -n 1 --overlap 5 -m $DESIGN_LEN -o $CUTADAPT $MATCH_ALLELES > $CUT_LOG
-    # Some Illumina instruments use a two-color chemistry to encode the four bases. This includes the NextSeq and the NovaSeq.
-    # In those instruments, a ‘dark cycle’ (with no detected color) encodes a G.
-    # However, dark cycles also occur when sequencing “falls off” the end of the fragment.
-    # The read then contains a run of high-quality, but incorrect “G” calls at its 3’ end.
-    MATCH=$(grep -c ">" $MATCH_ALLELES)
-    MATCH_CUT=$(grep -c ">" $CUTADAPT)
-    printf "\n    # Number of RefMatch and AltMatch extracted from MADC: $MATCH"
-    printf "\n    # Number of RefMatch and AltMatch retained after cutadapt: $MATCH_CUT\n"
+    printf "\n  # Panel with mixed insert sizes detected.\n"
+    REPORT_DIR="$(dirname "$REPORT")"
+    files_to_join=() # Keep all the fasta files to be concatenated
+    for file in "$REPORT_DIR"/*_insert*bp.fa; do
+        insert=$(echo "$file" | sed -n 's/.*insert\([0-9]*\)bp.*/\1/p') # insert size
+        if [ $insert -ge $SEQ_LEN ]; then
+            printf "\n  # Processing: $file"
+            printf "\n  # Sequencing length ($SEQ_LEN) is less than or equal to panel insert size ($insert), skipping cutadapt.\n"
+            files_to_join+=("$file")
+        else
+            printf "\n  # Processing: $file"
+            printf "\n  # Sequencing length ($SEQ_LEN) is longer than panel insert size ($insert), run cutadapt\n"
+            CUTADAPT=${file%.fa}'_cutadapt.fa'
+            CUT_LOG=${file%.fa}'_cutadapt.log'
+            $CUTADAPT_PATH -a ACCGATCTG -e 0.2 -n 1 --overlap 5 -m $DESIGN_LEN -o $CUTADAPT $file > $CUT_LOG
 
-    printf "\n#  5). Check if there are duplicate alleles after removing adapters AND update allele sequences and read counts\n"
+            files_to_join+=("$CUTADAPT")
+            # Some Illumina instruments use a two-color chemistry to encode the four bases. This includes the NextSeq and the NovaSeq.
+            # In those instruments, a ‘dark cycle’ (with no detected color) encodes a G.
+            # However, dark cycles also occur when sequencing “falls off” the end of the fragment.
+            # The read then contains a run of high-quality, but incorrect “G” calls at its 3’ end.
+
+            MATCH=$(grep -c ">" $file)
+            MATCH_CUT=$(grep -c ">" $CUTADAPT)
+            printf "\n    # Number of RefMatch and AltMatch extracted from MADC: $MATCH"
+            printf "\n    # Number of RefMatch and AltMatch retained after cutadapt: $MATCH_CUT\n"
+        fi
+    done
+
+    # Concatenate all files
+    CUTADAPT=${REPORT_SNPID%.csv}'_match_cutadapt.fa'
+    if [ "${#files_to_join[@]}" -gt 0 ]; then
+      cat "${files_to_join[@]}" > $CUTADAPT
+      printf "\n  # Final combined microhaplotype fasta file: $CUTADAPT"
+    else
+      printf "\n  # [ERROR] No files were processed for concatenation.\n"
+    fi
+fi
+
+
+
+printf "\n#  5). Check if there are duplicate alleles after removing adapters AND update allele sequences and read counts\n"
+if test -f "$CUTADAPT"; then
     printf "  # CUTADAPT file: $CUTADAPT\n"
     printf "  # Temporary rename file: $TMP_RENAME\n"
     python3 $SCRIPTS_DIR/step03_check_cutadapt_allele_uniqueness_AND_update_tmp_rename_report_v1.1.py $CUTADAPT $ALLELE_DB_DIR/$ALLELE_DB $TMP_RENAME
-    CUTADAPT_UNI=${REPORT_SNPID%????}'_match_cutadapt_unique.fa'
+    CUTADAPT_UNI=${CUTADAPT%???}'_unique.fa'
     TMP_RENAME_UPDATED=${REPORT_SNPID%????}'_tmp_rename_updatedSeq.csv'
 fi
+
 
 
 printf "\n#  6a). First, create the BLAST database"
 # 1. First, create the BLAST database
 makeblastdb -in $ALLELE_DB_DIR/$ALLELE_DB \
             -dbtype nucl \
+
 
 printf "\n#  6b). BLAST RefMatch and AltMatch against the allele db\n"
 # If there are no duplicate alleles, there won't be the a '_match_cutadapt_unique.fa'

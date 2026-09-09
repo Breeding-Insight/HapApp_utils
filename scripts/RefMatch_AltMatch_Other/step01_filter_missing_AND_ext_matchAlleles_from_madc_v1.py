@@ -20,6 +20,58 @@ import argparse
 import datetime
 import math
 
+def get_split_by_info(lut, split_by_colID):
+    split_by_dict = {}
+    inp = open(lut)
+    header = inp.readline()
+    header_array = header.strip().split(',')
+    split_index = header_array.index(split_by_colID)
+    line = inp.readline()
+    cnt = 0
+    while line:
+        line_array = line.strip().split(',')
+        if line_array[split_index] in split_by_dict:
+            split_by_dict[line_array[split_index]].append(line_array[1])
+        else:
+            split_by_dict[line_array[split_index]] = [line_array[1]]
+        cnt += 1
+        line = inp.readline()
+    inp.close()
+    print(f"[INFO] Found {cnt} markers in the lookup table.")
+    for key, value in split_by_dict.items():
+        print(f"[INFO] {key}bp: {len(value)} markers")
+    return split_by_dict
+
+
+
+def output_fasta(report, match_fasta, split_by_dict):
+    """Output FASTA file(s). Falls back to single file if split_by_dict is empty."""
+
+    if split_by_dict == "":
+        # Fallback: Write all sequences to one file
+        output_file = report.replace('.csv', '_match.fa')
+        print(f"[INFO] Writing all alleles to single file: {output_file}")
+        with open(output_file, 'w') as outp:
+            for seq in match_fasta.values():
+                outp.write(seq)
+    else:
+        # Split logic
+        print(f"[INFO] Writing multiple FASTA files based on LUT split.")
+        for split_val, markers in split_by_dict.items():
+            cnt = 0
+            output_file = report.replace('.csv', f'_match_{split_val}.fa')
+            with open(output_file, 'w') as outp:
+                for allele_ID, seq in match_fasta.items():
+                    clone_ID = allele_ID.split('|')[0]
+                    if clone_ID in markers:
+                        outp.write(seq)
+                        cnt += 1
+            print(f"[INFO] Created {output_file} with {cnt} alleles.")
+
+
+
+
+
 def extract_RefMatch_AltMatch(data_col_index, miss_count, retained_count, alleles, threshold, line_array):
     """Extract RefMatch and AltMatch alleles based on threshold criteria."""
 
@@ -33,6 +85,7 @@ def extract_RefMatch_AltMatch(data_col_index, miss_count, retained_count, allele
 
     return_list = 'False'
     return_fasta = 'False'
+    allele_ID = 'False'
 
     # Handle Ref / Alt allele IDs
     if line_array[0].endswith('Ref'):
@@ -55,13 +108,14 @@ def extract_RefMatch_AltMatch(data_col_index, miss_count, retained_count, allele
             return_fasta = f">{allele_ID}\n{line_array[2]}\n"
             return_list = [allele_ID] + line_array[1:3] + line_array[data_col_index:]
 
-    return return_list, return_fasta, miss_count, retained_count, alleles
+    return return_list, return_fasta, miss_count, retained_count, alleles, allele_ID
+
 
 
 def process_madc(report):
     """Main processing function for MADC report."""
+    match_fasta = {}
     with open(report, encoding='utf-8-sig') as inp, \
-         open(report.replace('.csv', '_match.fa'), "w") as outp_fasta, \
          open(report.replace('.csv', '_tmp_rename.csv'), 'w') as outp_report, \
          open(report.replace('.csv', '_match.log'), 'w') as outp_log:
 
@@ -118,20 +172,20 @@ def process_madc(report):
 
             else:
                 # Regular allele data rows
-                return_list, return_fasta, miss_count, retained_count, alleles = \
+                return_list, return_fasta, miss_count, retained_count, alleles, allele_ID = \
                     extract_RefMatch_AltMatch(data_col_index, miss_count, retained_count, alleles, threshold, line_array)
                 if return_list != 'False':
                     outp_report.write(','.join(return_list) + '\n')
                 if return_fasta != 'False':
-                    outp_fasta.write(return_fasta)
+                    match_fasta[allele_ID] = return_fasta
 
         # Summary
-        print(f"[INFO] Extract RefMatch, AltMatch, and Other alleles for determining allele identity and assigning IDs")
+        print(f"\n[INFO] Extract RefMatch, AltMatch, and Other alleles for determining allele identity and assigning IDs")
         print(f"[INFO] Retain an allele based on whichever is smaller below:")
         print(f"[INFO]   * At least 10 samples, each having >= 2 reads")
         print(f"[INFO]   * At least 5% samples, each having >= 2 reads")
         print(f"[INFO] Number of non-Ref/Alt allele DISCARDED: {miss_count}")
-        print(f"[INFO] Number of non-Ref/Alt allele RETAINED: {retained_count}")
+        print(f"[INFO] Number of non-Ref/Alt allele RETAINED: {retained_count}\n")
 
         outp_log.write("# Extract RefMatch, AltMatch, and Other alleles for determining allele identity and assigning IDs\n")
         outp_log.write("    # Retain an allele based on whichever is smaller below:\n")
@@ -139,13 +193,36 @@ def process_madc(report):
         outp_log.write("      * At least 5% samples, each having >= 2 reads\n")
         outp_log.write(f"      * Number of non-Ref/Alt alleles DISCARDED: {miss_count}\n")
         outp_log.write(f"      * Number of non-Ref/Alt alleles RETAINED: {retained_count}\n")
+        return match_fasta
 
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(
-        description="Extract RefMatch and AltMatch microhaps into a FASTA file and assign temp names for them in the report"
-    )
+        description="Extract RefMatch and AltMatch microhaps into a FASTA file and assign temp names for them in the report")
     parser.add_argument('report', help='MADC report CSV file')
+    parser.add_argument('--lut', help='Marker ID lookup table', default=None)
+    parser.add_argument('--split_by_colID', default='insert_size',
+                        help='Column ID to split FASTA file; leave empty or "" to ignore')
+
     args = parser.parse_args()
 
-    process_madc(args.report)
+    # 1. Extract RefMatch and AltMatch alleles meeting the criteria
+    match_fasta = process_madc(args.report)
+
+    # 2. Logic for optional LUT and split_by_colID
+    split_by_dict = {}
+
+    # Only attempt to parse LUT if provided and split_by_colID is not empty
+    if args.split_by_colID == "":
+        # 3. Output FASTA file(s)
+        split_by_dict = ""
+        output_fasta(args.report, match_fasta, split_by_dict)
+    elif args.split_by_colID == "insert_size" or args.split_by_colID != "":
+        print(f"[INFO] Using marker ID lookup table: {args.lut}")
+        print(f"[INFO] Splitting FASTA by column: {args.split_by_colID}")
+        split_by_dict = get_split_by_info(args.lut, args.split_by_colID)
+
+        # 3. Output FASTA file(s)
+        output_fasta(args.report, match_fasta, split_by_dict)
+    else:
+        print("[INFO] No valid LUT or split_by_colID provided. Generating a single FASTA file.")
