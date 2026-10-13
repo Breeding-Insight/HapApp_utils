@@ -43,6 +43,7 @@ def determine_allele_status(db_fasta):
         pass
     return(remove)
 
+
 def remove_duplicate_alleles_in_db_fasta(db_fasta, remove_alleles):
     import subprocess
     cmd = 'grep -c ">" ' + db_fasta

@@ -72,7 +72,7 @@ def output_fasta(report, match_fasta, split_by_dict):
 
 
 
-def extract_RefMatch_AltMatch(data_col_index, miss_count, retained_count, alleles, threshold, line_array):
+def extract_RefMatch_AltMatch(data_col_index, miss_count, retained_count, alleles, min_samples, min_reads, line_array):
     """Extract RefMatch and AltMatch alleles based on threshold criteria."""
 
     # Safely parse read count columns into floats, skip non-numeric entries
@@ -98,8 +98,8 @@ def extract_RefMatch_AltMatch(data_col_index, miss_count, retained_count, allele
 
     else:
         # Retention check
-        data_count = len([i for i in read_count_list if i >= 2])
-        if data_count < threshold:
+        data_count = len([i for i in read_count_list if i >= min_reads])
+        if data_count < min_samples:
             miss_count += 1
         else:
             retained_count += 1
@@ -112,7 +112,7 @@ def extract_RefMatch_AltMatch(data_col_index, miss_count, retained_count, allele
 
 
 
-def process_madc(report):
+def process_madc(report, min_samples, min_reads):
     """Main processing function for MADC report."""
     match_fasta = {}
     with open(report, encoding='utf-8-sig') as inp, \
@@ -126,7 +126,6 @@ def process_madc(report):
         outp_log.write(f'[INFO] ## Processing {report}\n\n')
 
         data_col_index = None
-        threshold = None
 
         for line in inp:
             line_array = line.strip().split(',')
@@ -134,11 +133,9 @@ def process_madc(report):
             # Special rows prior to header
             if line_array[0] == '':
                 data_col_index = line_array.count('')
-                threshold = min(10, math.ceil(len(line_array[data_col_index:]) * 0.05))
 
             elif line_array[0] == '*':
                 data_col_index = line_array.count('*')
-                threshold = min(10, math.ceil(len(line_array[data_col_index:]) * 0.05))
 
             elif line_array[0] == 'AlleleID':
                 # Set data_col_index to AFTER AlleleSequence column in header
@@ -146,7 +143,7 @@ def process_madc(report):
                     data_col_index = line_array.index('AlleleSequence') + 1
                 else:
                     data_col_index = 3
-                threshold = min(10, math.ceil(len(line_array[data_col_index:]) * 0.05))
+                min_samples = min(min_samples, math.ceil(len(line_array[data_col_index:]) * 0.05))
 
                 # Check duplicate sample names in header
                 check_dup_set = set([x for x in line_array[data_col_index:]
@@ -173,7 +170,7 @@ def process_madc(report):
             else:
                 # Regular allele data rows
                 return_list, return_fasta, miss_count, retained_count, alleles, allele_ID = \
-                    extract_RefMatch_AltMatch(data_col_index, miss_count, retained_count, alleles, threshold, line_array)
+                    extract_RefMatch_AltMatch(data_col_index, miss_count, retained_count, alleles, min_samples, min_reads, line_array)
                 if return_list != 'False':
                     outp_report.write(','.join(return_list) + '\n')
                 if return_fasta != 'False':
@@ -182,15 +179,15 @@ def process_madc(report):
         # Summary
         print(f"\n[INFO] Extract RefMatch, AltMatch, and Other alleles for determining allele identity and assigning IDs")
         print(f"[INFO] Retain an allele based on whichever is smaller below:")
-        print(f"[INFO]   * At least 10 samples, each having >= 2 reads")
-        print(f"[INFO]   * At least 5% samples, each having >= 2 reads")
+        print(f"[INFO]   * At least {min_samples} samples, each having >= {min_reads} reads")
+        print(f"[INFO]   * At least 5% samples, each having >= {min_reads} reads")
         print(f"[INFO] Number of non-Ref/Alt allele DISCARDED: {miss_count}")
         print(f"[INFO] Number of non-Ref/Alt allele RETAINED: {retained_count}\n")
 
         outp_log.write("# Extract RefMatch, AltMatch, and Other alleles for determining allele identity and assigning IDs\n")
         outp_log.write("    # Retain an allele based on whichever is smaller below:\n")
-        outp_log.write("      * At least 10 samples, each having >= 2 reads\n")
-        outp_log.write("      * At least 5% samples, each having >= 2 reads\n")
+        outp_log.write(f"      * At least {min_samples} samples, each having >= {min_reads} reads\n")
+        outp_log.write(f"      * At least 5% samples, each having >= {min_reads} reads\n")
         outp_log.write(f"      * Number of non-Ref/Alt alleles DISCARDED: {miss_count}\n")
         outp_log.write(f"      * Number of non-Ref/Alt alleles RETAINED: {retained_count}\n")
         return match_fasta
@@ -201,13 +198,15 @@ if __name__ == '__main__':
         description="Extract RefMatch and AltMatch microhaps into a FASTA file and assign temp names for them in the report")
     parser.add_argument('report', help='MADC report CSV file')
     parser.add_argument('--lut', help='Marker ID lookup table', default=None)
+    parser.add_argument('--min_samples', type=int, default=10, help='Minimum number of samples with minimum reads to retain an allele')
+    parser.add_argument('--min_reads', type=int, default=2, help='Minimum number of reads to retain an allele')
     parser.add_argument('--split_by_colID', default='insert_size',
                         help='Column ID to split FASTA file; leave empty or "" to ignore')
 
     args = parser.parse_args()
 
     # 1. Extract RefMatch and AltMatch alleles meeting the criteria
-    match_fasta = process_madc(args.report)
+    match_fasta = process_madc(args.report, args.min_samples, args.min_reads)
 
     # 2. Logic for optional LUT and split_by_colID
     split_by_dict = {}
