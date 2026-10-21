@@ -15,8 +15,8 @@
 # If no new alleles are found, give the readme file another name
 
 #### 1. Parameters and files for fixed allele ID assignment
-PROCESS_README='/Users/dongyan.zhao/PycharmProjects/BI/chestnut_dartag_v2_00_microhaplotype_db/data/DCnutv2_allele_db_v003_process.readme'
-NO_NEW_ALLELE_README='/Users/dongyan.zhao/PycharmProjects/BI/chestnut_dartag_v2_00_microhaplotype_db/data/DCnutv2_allele_db_v002_DCnut26-11629_noNewAllele.readme'
+PROCESS_README='/Users/dongyan.zhao/PycharmProjects/BI/HapApp_utils/data/hemp_test/versions/hemp_allele_db_v004_process.readme'
+NO_NEW_ALLELE_README='/Users/dongyan.zhao/PycharmProjects/BI/HapApp_utils/data/hemp_test/versions/hemp_allele_db_v003_noNewAllele.readme'
 exec > >(tee "$PROCESS_README") 2>&1
 
 # Scripts and files
@@ -24,11 +24,11 @@ CUTADAPT_PATH="/Library/Frameworks/Python.framework/Versions/3.9/bin/cutadapt"
 SCRIPTS_DIR='/Users/dongyan.zhao/PycharmProjects/BI/HapApp_utils/scripts/RefMatch_AltMatch_Other'
 CODE_VER='v1'
 
-MARKERID_LUT='/Users/dongyan.zhao/Downloads/hap/chestnut_DArTag-probe-design-v2_type_snpID_lut.csv'
-ALLELE_DB_DIR='/Users/dongyan.zhao/PycharmProjects/BI/chestnut_dartag_v2_00_microhaplotype_db/data'
-ALLELE_DB='DCnutv2_allele_db_v002.fa'
-MATCHCNT_LUT='DCnutv2_allele_db_v002_matchCnt_lut.txt'
-REPORT='/Users/dongyan.zhao/Downloads/hap/DCnut26-11629_MADC.csv'
+MARKERID_LUT='/Users/dongyan.zhao/PycharmProjects/BI/HapApp_utils/data/hemp_test/lut/DArTag_Submission_Hemp_20260224_snpID_lut.csv'
+ALLELE_DB_DIR='/Users/dongyan.zhao/PycharmProjects/BI/HapApp_utils/data/hemp_test/versions'
+ALLELE_DB='hemp_allele_db_v003.fa'
+MATCHCNT_LUT='hemp_allele_db_v003_matchCnt_lut.txt'
+REPORT='/Users/dongyan.zhao/PycharmProjects/BI/HapApp_utils/data/hemp_test/report/DHe25-10560_MADC.csv'
 
 # First sample column in the MADC file, which is the first column of sample read counts
 FIRST_SAMPLE_COL=17
@@ -36,7 +36,7 @@ FIRST_SAMPLE_COL=17
 # If the panel is a mixed insert size panel,
 # the column name in the markerID_lut that contains the insert size information
 # If left empty, the script will not split the MADC file by insert size and will process all microhaplotypes together
-LUT_INSERT_SIZE_COL='insert_size'
+LUT_INSERT_SIZE_COL=""
 
 # Initial filter of microhaplotypes with missing data
 MIN_SAMPLES=1
@@ -55,10 +55,11 @@ IDEN=80
 
 #### 2. Parameters and files for generating haplotype presence-absence matrix
 HAPPA_SCRIPT_DIR="/Users/dongyan.zhao/PycharmProjects/BI/HapApp_utils/scripts/hapPA"
-PROJECT_DESCRIPTOR='P04_DCnut26-11629'
+PROJECT_DESCRIPTOR='P01_DHe25-10560_6plates'
 MIN_READS_FOR_PRESENCE=10
 
-LATEST_HAPPA_MATRIX="${ALLELE_DB_DIR}/hapSearch/hapPA/${PROJECT_DESCRIPTOR}_hapPA.csv"
+LATEST_HAPPA_MATRIX="/Users/dongyan.zhao/PycharmProjects/BI/HapApp_utils/data/hemp_test/hapSearch/hapPA/hemp_allele_db_v003_DHe25-10558_hapPA.csv"
+PROJECT_ID="DHe25-10560"
 
 
 # ###### End of user input information ######
@@ -145,7 +146,7 @@ TMP_RENAME="${REPORT_SNPID%????}_tmp_rename.csv"
 MATCH_ALLELES="${REPORT_SNPID%????}_match.fa"
 
 
-printf "\n#  4). Remove adapters using cutadapt"
+printf "\n# 4). Remove adapters using cutadapt"
 #  -n COUNT, --times COUNT
 #                        Remove up to COUNT adapters from each read. Default: 1
 #  -O MINLENGTH, --overlap MINLENGTH
@@ -217,7 +218,7 @@ makeblastdb -in "$ALLELE_DB_DIR/$ALLELE_DB" \
             -dbtype nucl
 
 
-printf "\n#  6b). BLAST RefMatch and AltMatch against the allele db\n"
+printf "#  6b). BLAST RefMatch and AltMatch against the allele db\n"
 # If there are no duplicate alleles, there won't be the a '_match_cutadapt_unique.fa'
 # There won't be a '_tmp_rename_updatedSeq.csv' either
 # Here, use if else to execute different input files.
@@ -309,15 +310,16 @@ else
     printf "\n  # No *match.fa* files found to move into %s\n" "$HAP_DIR"
 fi
 rm -f "$TMP_RENAME" "$TMP_RENAME_UPDATED"
-printf "\n###### Complete! #######\n"
+printf "\n###### Now generating microhaplotype presence-absence matrix! #######\n"
 
 
 ####################################
 # Generate microhaplotype presence-absence matrix for the MADC file with fixed allele IDs
+####################################
 
 if [[ -f "$MADC_CLEANED" ]]; then
     printf "\n#  13). Generate microhaplotype presence-absence matrix for the MADC file with fixed allele IDs\n"
-    printf "\n  # Input MADC file: $MADC_CLEANED_VER\n"
+    printf "\n  # Input MADC file: $MADC_CLEANED\n"
     printf "\n  # Output haplotype presence-absence matrix will be generated in the same directory as the input MADC file.\n"
     python3 "$HAPPA_SCRIPT_DIR/util_haplotype_presence_absence_matrix.py" \
     --madc "$MADC_CLEANED"\
@@ -327,6 +329,7 @@ else
     printf "\n  # [ERROR] MADC file with fixed allele IDs not found. Cannot generate haplotype presence-absence matrix.\n"
 fi
 HAP_STATUS="${MADC_CLEANED%.csv}_hapStatus.csv"
+HAPPA="${MADC_CLEANED%.csv}_hapPA.csv"
 
 
 printf "\n#  14). Create hapSearch, hapPA, and sample_hapStatus directories if they do not exist\n"
@@ -363,13 +366,23 @@ else
     printf "\n  # [ERROR] Haplotype presence-absence matrix not generated. Please check the previous steps for errors.\n"
 fi
 
+
 printf "\n#  16). Generate haplotype presence-absence matrix for the MADC file with fixed allele IDs in the hapPA directory\n"
-
-
-HAPPA_MATRIX_NEW="${dirname, "$ALLELE_DB_DIR"}/hapSearch/hapPA/${ALLELE_DB_NEW%.fa}_hapPA.csv"
-if [[ -f $LATEST_HAPPA_MATRIX ]]; then
-    printf "\n  # Copying microhaplotype presence/absence table to $HAPPA_MATRIX_DIR\n"
-    cp "$LATEST_HAPPA_MATRIX" "$HAPPA_MATRIX_DIR/"
+if [[ -f "$ALLELE_DB_DIR/$ALLELE_DB_NEW" ]]; then
+    printf "\n  # New version of db created after adding novel alleles.\n"
+    HAPPA_MATRIX_NEW="$(dirname "$ALLELE_DB_DIR")/hapSearch/hapPA/${ALLELE_DB_NEW%.fa}_"$PROJECT_ID"_hapPA.csv"
 else
-    printf "\n  # [ERROR] Haplotype presence-absence matrix not found in hapPA directory. Please check the previous steps for errors.\n"
+    printf "\n  # No new alleles found, therefore, no new db generated.\n"
+    HAPPA_MATRIX_NEW="$(dirname "$ALLELE_DB_DIR")/hapSearch/hapPA/${ALLELE_DB%.fa}_"$PROJECT_ID"_hapPA.csv"
+    printf "  # Generating microhaplotype presence/absence matrix in hapPA directory using the latest db.\n"
+fi
+
+
+printf "\n#  17). Generate haplotype presence-absence matrix for all projects\n"
+if [[ -f $LATEST_HAPPA_MATRIX ]]; then
+    printf "\n  # Generating new microhaplotype presence/absence matrix: $HAPPA_MATRIX_NEW\n"
+    python3 "$HAPPA_SCRIPT_DIR/util_hapDB_merge_presence_absence_PIhaps.py" --reports $LATEST_HAPPA_MATRIX,$HAPPA --output "$HAPPA_MATRIX_NEW"
+else
+    cp "$HAPPA" "$HAPPA_MATRIX_NEW"
+    printf "\n  # Copying new microhaplotype presence/absence matrix to $HAPPA_MATRIX_NEW\n"
 fi
