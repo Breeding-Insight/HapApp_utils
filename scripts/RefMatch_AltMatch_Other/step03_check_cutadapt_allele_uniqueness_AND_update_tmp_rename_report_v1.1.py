@@ -175,6 +175,13 @@ def update_tmp_rename_report(tmp_rename_report, remove_alleles, df_concat, refAl
             if i != ref and i != alt and 'RefMatch' not in i and 'AltMatch' not in i:
                 index_ordered.append(i)
 
+    #### CHANGE: reindex silently drops rows it is not given and invents rows for IDs
+    #### that do not exist, so stop here instead of losing alleles without warning.
+    dropped = df_update.index.difference(index_ordered)
+    invented = pd.Index(index_ordered).difference(df_update.index)
+    if len(dropped) > 0 or len(invented) > 0:
+        raise ValueError(f'Reordering the report changed its rows. Dropped: {list(dropped)[:5]} '
+                         f'({len(dropped)} total). Invented: {list(invented)[:5]} ({len(invented)} total).')
     df_ordered = df_update.reindex(index_ordered, axis=0)
     outf = tmp_rename_report.replace('.csv', '_updatedSeq.csv')
     df_ordered.to_csv(outf)
