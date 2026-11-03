@@ -97,14 +97,14 @@ def remove_duplicate_alleles_in_db_fasta(db_fasta, remove_alleles):
     outp_readme.write('Number of alleles in the output db fasta file: ' + str(int(total_seq) - len(remove_alleles)) + '\n')
 
 
-if __name__ == '__main__':
+def main(argv=None):
     import argparse
     
     parser = argparse.ArgumentParser(description="Check whether there are duplicate allele sequences with the different allele names")
 
     parser.add_argument('db_fasta', help='')
     
-    args = parser.parse_args()
+    args = parser.parse_args(argv)
 
     # Generate dictionary of duplicate alleles, with the longer alleles as keys
     remove = determine_allele_status(args.db_fasta)
@@ -114,3 +114,7 @@ if __name__ == '__main__':
         remove_duplicate_alleles_in_db_fasta(args.db_fasta, remove)
     else:
         print('# No duplicate microhaplotypes in current db:', args.db_fasta)
+
+
+if __name__ == '__main__':
+    main()

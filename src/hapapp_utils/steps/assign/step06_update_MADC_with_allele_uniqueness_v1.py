@@ -45,7 +45,7 @@ def update_madc_alleleID_and_seq_after_remove_db_duplicates(remove_keep_pairs, m
         print('No duplicate microhaplotypes in the MADC\n\n')
 
 
-if __name__ == '__main__':
+def main(argv=None):
     import argparse
     
     parser = argparse.ArgumentParser(description="Check whether there are duplicate allele sequences with the different allele names")
@@ -54,9 +54,13 @@ if __name__ == '__main__':
 
     parser.add_argument('madc_cleaned', help='')
     
-    args = parser.parse_args()
+    args = parser.parse_args(argv)
 
     # Generate dictionary of duplicate alleles, with the longer alleles or small-allele-number IDs as keys
     remove_keep_pairs = get_duplicate_alleles(args.dup)
 
     update_madc_alleleID_and_seq_after_remove_db_duplicates(remove_keep_pairs, args.madc_cleaned)
+
+
+if __name__ == '__main__':
+    main()

@@ -52,7 +52,7 @@ def ext_ref_alt_amplicon_seq(report):
 
 
 
-if __name__=='__main__':
+def main(argv=None):
 
     import argparse
 
@@ -61,6 +61,10 @@ if __name__=='__main__':
     parser.add_argument('report',
                         help='Raw MADC report')
 
-    args=parser.parse_args()
+    args=parser.parse_args(argv)
 
     ext_ref_alt_amplicon_seq(args.report)
+
+
+if __name__ == '__main__':
+    main()

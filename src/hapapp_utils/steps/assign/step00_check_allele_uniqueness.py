@@ -68,7 +68,7 @@ def determine_allele_status(madc, first_sample_column):
 
 
 
-if __name__ == '__main__':
+def main(argv=None):
     import argparse
     
     parser = argparse.ArgumentParser(description="Check whether there are duplicate allele sequences with the different allele names")
@@ -77,6 +77,10 @@ if __name__ == '__main__':
 
     parser.add_argument('first_sample_column', help='The column containing the first sample data')
     
-    args = parser.parse_args()
+    args = parser.parse_args(argv)
 
     determine_allele_status(args.madc, args.first_sample_column)
+
+
+if __name__ == '__main__':
+    main()

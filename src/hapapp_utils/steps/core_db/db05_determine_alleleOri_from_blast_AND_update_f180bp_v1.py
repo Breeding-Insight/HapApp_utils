@@ -101,7 +101,7 @@ def ext_unique_hits_for_queries(blast):
     return(alleles)
 
 
-if __name__=='__main__':
+def main(argv=None):
 
     import argparse
 
@@ -113,10 +113,14 @@ if __name__=='__main__':
     parser.add_argument('fastaDB',
                         help='Allele DB')
 
-    args=parser.parse_args()
+    args=parser.parse_args(argv)
     
     print('  # Running db05_determine_alleleOri_from_blast_AND_update_f180bp_v1.py on', args.blast)
 
     alleles = ext_unique_hits_for_queries(args.blast)
     
     get_rev_compliment_fasta(args.fastaDB, alleles)
+
+
+if __name__ == '__main__':
+    main()

@@ -108,7 +108,7 @@ def pre_ref_alt_flankSeq(flank, ref_alt_bases, flank_len, outf_base):
         print('[INFO] No Ref and Alt swapped markers found\n')
 
 
-if __name__=='__main__':
+def main(argv=None):
 
     import argparse
 
@@ -123,10 +123,14 @@ if __name__=='__main__':
     parser.add_argument('--flank_len',
                         help='Length of the left-side flanking sequence')
 
-    args=parser.parse_args()
+    args=parser.parse_args(argv)
 
     ref_alt_bases = get_ref_alt_bases(args.snpID_lut)
 
     flank = get_flankSeq(args.flankSeq)
 
     pre_ref_alt_flankSeq(flank, ref_alt_bases, args.flank_len, args.flankSeq)
+
+
+if __name__ == '__main__':
+    main()

@@ -30,7 +30,7 @@ def rm_dupTag_closeTag(report, dup_tags, outf):
 
 
 
-if __name__=='__main__':
+def main(argv=None):
 
     import argparse
 
@@ -44,8 +44,12 @@ if __name__=='__main__':
 
     parser.add_argument('outf', help='Output file name')
 
-    args=parser.parse_args()
+    args=parser.parse_args(argv)
 
     dup_tags = collect_dupTag_closeTag(args.tags)
 
     rm_dupTag_closeTag(args.report, dup_tags, args.outf)
+
+
+if __name__ == '__main__':
+    main()

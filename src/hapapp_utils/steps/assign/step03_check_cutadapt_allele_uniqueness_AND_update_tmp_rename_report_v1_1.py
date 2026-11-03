@@ -179,7 +179,7 @@ def update_tmp_rename_report(tmp_rename_report, remove_alleles, df_concat, refAl
     df_ordered.to_csv(outf)
 
 
-if __name__ == '__main__':
+def main(argv=None):
     import argparse
     
     parser = argparse.ArgumentParser(description="Check whether there are duplicate allele sequences with the different allele names")
@@ -190,7 +190,7 @@ if __name__ == '__main__':
 
     parser.add_argument('tmp_rename_report', help='')
     
-    args = parser.parse_args()
+    args = parser.parse_args(argv)
 
     # Generate a list of lists of duplicate alleles
     dup_alleles_lists, remove_alleles = determine_allele_status(args.cutadapt_fasta)
@@ -213,3 +213,7 @@ if __name__ == '__main__':
         update_tmp_rename_report(args.tmp_rename_report, remove_alleles, df_concat, refAlt_81bp_allele_dict, cutadapt_uni_allele_dict)
     else:
         print('\n  # No duplicate microhaplotypes found in:', args.cutadapt_fasta)
+
+
+if __name__ == '__main__':
+    main()

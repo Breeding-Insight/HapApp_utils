@@ -165,7 +165,7 @@ def get_query_unique_hits(blast):
     return(blast_unique)
 
 
-if __name__=='__main__':
+def main(argv=None):
 
     import argparse
 
@@ -180,7 +180,7 @@ if __name__=='__main__':
     parser.add_argument('length',
                         help='DArT provides different sequence lengths, try to set up longer Ref/Alt sequences to be proactive for increasing sequence length from DArT (109 bp as of Mar 2025)')
 
-    args=parser.parse_args()
+    args=parser.parse_args(argv)
     
     print('  # Running db07_generate_ref_alt_sfetch_keys_from_blast_v1.1.py on', args.blast)
 
@@ -189,3 +189,7 @@ if __name__=='__main__':
     blast_unique = get_query_unique_hits(args.blast)
 
     get_sfetch_keys(args.blast, blast_unique, args.length, ref_alt_bases)
+
+
+if __name__ == '__main__':
+    main()

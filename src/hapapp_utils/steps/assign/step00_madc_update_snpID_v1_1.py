@@ -66,7 +66,7 @@ def update_snpID(report, snpID_lut):
 
 
 
-if __name__=='__main__':
+def main(argv=None):
 
     import argparse
 
@@ -78,8 +78,12 @@ if __name__=='__main__':
     parser.add_argument('report',
                         help='Missing allele report with allele name reformatted and unique sample names')
 
-    args=parser.parse_args()
+    args=parser.parse_args(argv)
     
     snpID_lut = get_snpID_lut(args.lut)
     
     update_snpID(args.report, snpID_lut)
+
+
+if __name__ == '__main__':
+    main()

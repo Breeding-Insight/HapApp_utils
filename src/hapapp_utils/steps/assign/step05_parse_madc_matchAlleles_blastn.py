@@ -604,7 +604,7 @@ def update_db_allele_fasta(db_allele_fasta, new_alleles_fasta, retired_db_ids=No
     print("    - Number of allele sequences in the updated database:", len(merged))
 
 
-if __name__ == '__main__':
+def main(argv=None):
 
     import argparse
 
@@ -644,7 +644,7 @@ if __name__ == '__main__':
                               "allele ID (default); 'db' trusts the class already recorded "
                               "in the allele database.")
 
-    args = parser.parse_args()
+    args = parser.parse_args(argv)
 
     import datetime
     now = datetime.datetime.now()
@@ -695,3 +695,7 @@ if __name__ == '__main__':
         update_db_allele_fasta(args.db_allele_fasta, new_alleles_fasta, retired_db_ids)
     else:
         print('\n[INFO] # No new alleles found in this project\n')
+
+
+if __name__ == '__main__':
+    main()

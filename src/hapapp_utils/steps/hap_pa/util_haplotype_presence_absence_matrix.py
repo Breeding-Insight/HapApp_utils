@@ -49,7 +49,7 @@ def get_project_haplotypes(madc, project_description, read_threshold):
     print("[INFO] Processing complete.")
 
 
-if __name__ == '__main__':
+def main(argv=None):
     # Simplified argparse block at the bottom of the script
     parser = argparse.ArgumentParser(description="Assign haplotypes based on read count thresholds.")
 
@@ -58,6 +58,10 @@ if __name__ == '__main__':
     parser.add_argument('--read_threshold', type=int, default=10,
                         help='Read count threshold for allele presence (default: 10)')
 
-    args = parser.parse_args()
+    args = parser.parse_args(argv)
 
     get_project_haplotypes(args.madc, args.descriptor, args.read_threshold)
+
+
+if __name__ == '__main__':
+    main()

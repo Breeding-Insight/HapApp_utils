@@ -79,7 +79,7 @@ def remove_dup_tags(file, dupTag_2_remove):
 
 
 
-if __name__=='__main__':
+def main(argv=None):
 
     import argparse
 
@@ -90,8 +90,12 @@ if __name__=='__main__':
 
     parser.add_argument('dupTag', help='A tsv file containing duplicate marker loci')
 
-    args=parser.parse_args()
+    args=parser.parse_args(argv)
 
     dupTag_2_remove = get_dup_tags(args.dupTag)
 
     remove_dup_tags(args.file, dupTag_2_remove)
+
+
+if __name__ == '__main__':
+    main()

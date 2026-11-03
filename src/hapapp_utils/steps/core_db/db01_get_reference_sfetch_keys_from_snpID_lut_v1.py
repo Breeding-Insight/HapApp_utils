@@ -130,7 +130,7 @@ def get_sfetch_keys(lut_path, chr_len, flankBP, marker_IDs=None):
     print(f"[INFO] Wrote {out_count} record(s) to {out_path}")
 
 
-if __name__=='__main__':
+def main(argv=None):
     import argparse
     parser = argparse.ArgumentParser(
         description="Generate esl-sfetch key file from a marker LUT; optionally filter by marker IDs from a MADC file.")
@@ -139,8 +139,12 @@ if __name__=='__main__':
     parser.add_argument('--flankBP', type=int, help='Flank length to extract on each side of Pos (integer)')
     parser.add_argument('--madc', help='MADC CSV to filter marker IDs (2nd column used)')
 
-    args = parser.parse_args()
+    args = parser.parse_args(argv)
 
     chr_len_map = get_chr_len(args.chr_len)
     ids_filter = get_marker_IDs(args.madc) if args.madc else None
     get_sfetch_keys(args.lut, chr_len_map, args.flankBP, marker_IDs=ids_filter)
+
+
+if __name__ == '__main__':
+    main()

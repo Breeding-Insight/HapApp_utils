@@ -176,7 +176,7 @@ def prepare_lut(probe_path: str, panel_markers: Optional[list]) -> int:
 
 
 # ----------------------------------------------------------------------
-if __name__ == "__main__":
+def main(argv=None):
     import argparse
 
     parser = argparse.ArgumentParser(description="Build a SNP LUT from probe design file")
@@ -185,8 +185,12 @@ if __name__ == "__main__":
 
     parser.add_argument("probe", help="Probe design file (.txt or .csv)")
 
-    args = parser.parse_args()
+    args = parser.parse_args(argv)
 
     panel_markers = get_panel_marker_ids(args.madc, args.probe) if args.madc else None
 
     prepare_lut(args.probe, panel_markers)
+
+
+if __name__ == '__main__':
+    main()

@@ -116,7 +116,7 @@ def concat_madc(report_paths, outfile):
     print("Complete!")
 
 
-if __name__ == '__main__':
+def main(argv=None):
     import argparse
 
     parser = argparse.ArgumentParser(description="Generate stats from missing allele count")
@@ -135,7 +135,7 @@ if __name__ == '__main__':
     parser.add_argument('--output',
                         help='Output file name')
 
-    args = parser.parse_args()
+    args = parser.parse_args(argv)
 
     #### CHANGE: validate that exactly one input mode was given, then build
     #### the resolved list of report paths for concat_madc().
@@ -151,3 +151,7 @@ if __name__ == '__main__':
             report_paths = [line.strip() for line in inp if line.strip()]
 
     concat_madc(report_paths, args.output)
+
+
+if __name__ == '__main__':
+    main()

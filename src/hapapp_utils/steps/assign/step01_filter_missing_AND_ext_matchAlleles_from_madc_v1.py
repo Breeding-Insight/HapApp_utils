@@ -193,7 +193,7 @@ def process_madc(report, min_samples, min_reads):
         return match_fasta
 
 
-if __name__ == '__main__':
+def main(argv=None):
     parser = argparse.ArgumentParser(
         description="Extract RefMatch and AltMatch microhaps into a FASTA file and assign temp names for them in the report")
     parser.add_argument('report', help='MADC report CSV file')
@@ -203,7 +203,7 @@ if __name__ == '__main__':
     parser.add_argument('--split_by_colID', default='insert_size',
                         help='Column ID to split FASTA file; leave empty or "" to ignore')
 
-    args = parser.parse_args()
+    args = parser.parse_args(argv)
 
     # 1. Extract RefMatch and AltMatch alleles meeting the criteria
     match_fasta = process_madc(args.report, args.min_samples, args.min_reads)
@@ -225,3 +225,7 @@ if __name__ == '__main__':
         output_fasta(args.report, match_fasta, split_by_dict)
     else:
         print("[INFO] No valid LUT or split_by_colID provided. Generating a single FASTA file.")
+
+
+if __name__ == '__main__':
+    main()
