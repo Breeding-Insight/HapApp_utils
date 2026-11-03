@@ -1,0 +1,33 @@
+[build-system]
+requires = ["setuptools>=69"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "hapapp-utils"
+dynamic = ["version"]
+description = "Build and maintain microhaplotype databases from targeted genotyping reports"
+readme = "README.md"
+license = { file = "LICENSE" }
+requires-python = ">=3.10"
+authors = [{ name = "Breeding Insight" }]
+dependencies = [
+  "biopython",
+  "cutadapt",
+  "pandas",
+  "pyyaml",
+]
+
+[project.optional-dependencies]
+test = ["pytest"]
+
+[project.scripts]
+hapapp-utils = "hapapp_utils.cli:main"
+
+[tool.setuptools.dynamic]
+version = { attr = "hapapp_utils.__version__" }
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]

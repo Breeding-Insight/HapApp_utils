@@ -1,0 +1,49 @@
+"""Reading the layout of a MADC report without loading its read counts."""
+
+from __future__ import annotations
+
+from dataclasses import dataclass
+
+# Columns that can come before the samples in a raw DArT MADC
+METADATA_COLUMNS = {
+    "AlleleID", "CloneID", "AlleleSequence", "ClusterConsensusSequence", "CallRate", "OneRatioRef",
+    "OneRatioSnp", "FreqHomRef", "FreqHomSnp", "FreqHets", "PICRef", "PICSnp", "AvgPIC",
+    "AvgCountRef", "AvgCountSnp", "RatioAvgCountRefAvgCountSnp",
+}
+
+
+@dataclass
+class MadcLayout:
+    first_sample_column: int  # 1-based
+    samples: list
+    filler_columns: int  # the number of leading * cells, or 0 if the file has no * rows
+
+
+def read_layout(path):
+    """Find the header row and work out which column the samples start in."""
+    filler_columns = 0
+    with open(path, encoding="utf-8-sig") as handle:
+        for line in handle:
+            cells = line.rstrip("\r\n").split(",")
+            if cells[0] == "*" and not filler_columns:
+                filler_columns = cells.count("*")
+            if cells[0] == "AlleleID":
+                for required in ("CloneID", "AlleleSequence"):
+                    if required not in cells:
+                        raise ValueError(f"{path}: header row has no {required} column")
+                first = next((i for i, name in enumerate(cells) if name not in METADATA_COLUMNS), len(cells))
+                return MadcLayout(first + 1, cells[first:], filler_columns)
+    raise ValueError(f"{path}: no header row starting with AlleleID")
+
+
+def read_marker_ids(path):
+    """The markers named in the report, taken from the part of each AlleleID before the |."""
+    markers = set()
+    header_seen = False
+    with open(path, encoding="utf-8-sig") as handle:
+        for line in handle:
+            if not header_seen:
+                header_seen = line.startswith("AlleleID,")
+                continue
+            markers.add(line.split(",", 1)[0].rsplit("|", 1)[0])
+    return markers
