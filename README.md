@@ -7,9 +7,10 @@ We developed a systematic workflow to process MADC reports and assign standardiz
 `hapapp-utils` runs this workflow from one settings file. Each step remains its own Python module.
 
 ```bash
-pip install -e ".[test]"             # also needs BLAST+ on your PATH
+pip install -e ".[test]"             # also needs BLAST+ and MMseqs2 on your PATH
 hapapp-utils init run.yaml           # write a commented settings file
 hapapp-utils check -c run.yaml       # check tools, inputs and settings
+hapapp-utils build-db -c build.yaml  # a panel's first database, from the reference genome
 hapapp-utils assign -c run.yaml      # fixed allele IDs and a new database version
 ```
 

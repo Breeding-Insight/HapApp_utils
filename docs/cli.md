@@ -6,26 +6,29 @@
 pip install -e ".[test]"
 ```
 
-This installs the Python dependencies, including cutadapt. BLAST+ (`blastn`, `makeblastdb`) must also be on your PATH. `hapapp-utils check` tells you if anything is missing.
+This installs the Python dependencies, including cutadapt. BLAST+ (`blastn`, `makeblastdb`) must also be on your PATH, and `build-db` also needs MMseqs2 (`mmseqs`). `hapapp-utils check` tells you if anything is missing.
 
 ## Commands
 
 | Command | What it does |
 |---|---|
-| `init [file]` | Write a commented settings file |
+| `init [file]` | Write a commented settings file, for `assign` or with `--workflow build-db` |
 | `check -c file` | Check tools, inputs and settings without running anything |
+| `build-db -c file` | Build a panel's first allele database from the reference genome |
 | `assign -c file` | Turn a MADC into fixed allele IDs and a new database version |
 | `hap-pa` | Build presence/absence tables from a report with fixed IDs |
 | `merge-pa` | Merge presence/absence matrices from several projects |
 
-`assign` and `check` also accept:
+`build-db`, `assign` and `check` also accept:
 
 - `--set key=value` to override a setting, for example `--set filter.min_reads=30`. It can be repeated.
 - `-o folder` to choose the output folder.
 
-`assign` also accepts:
+`build-db` and `assign` also accept:
 
-- `--until stage` to stop after a stage: `update-ids`, `filter`, `trim`, `blast`, `assign-ids`, `db-check` or `hap-pa`.
+- `--until stage` to stop after a stage.
+  - For `build-db`: `lookup`, `flanks`, `orient`, `alleles`, `duplicates` or `finish`.
+  - For `assign`: `update-ids`, `filter`, `trim`, `blast`, `assign-ids`, `db-check` or `hap-pa`.
 - `-v` to show each step's output as well as saving it to the log.
 
 To try different thresholds, run again with `--set` and a new `-o` folder. Earlier results and the input database are never changed.
@@ -35,6 +38,28 @@ Exit codes: 0 finished, 1 error, 2 bad command-line arguments, 3 duplicate allel
 ## Settings
 
 Settings on the command line replace those in the file. Relative paths in the file are resolved from the file's own folder, and those on the command line from the current folder.
+
+### build-db
+
+| Setting | Variable in the bash workflow | Required | Default |
+|---|---|---|---|
+| `inputs.probe_design` | `PROBE_FILE` | yes | |
+| `inputs.madc` | `REPORT` | yes | |
+| `inputs.genome` | `REF_GENOME` | yes | |
+| `inputs.chromosome_map` | none | no | none |
+| `database.name` | `ALLELE_DB`, `MATCH_CNT` | yes | |
+| `database.allele_length` | `REF_LEN` | yes | |
+| `database.flank_length` | `FLANK_LEN` | no | 150 |
+| `database.dup_min_identity` | written in the mmseqs command | no | 0.95 |
+| `database.dup_min_coverage` | written in the mmseqs command | no | 0.99 |
+| `database.threads` | written in the blastn and mmseqs commands | no | 6 |
+| `output.dir` | none | yes | |
+
+`inputs.probe_design` can be the DArT template as `.xlsx`, or `.csv` or tab-delimited `.txt`. Any notes above the `Marker Name` row are skipped. `CHR_LEN` is no longer needed because lengths are read from the genome.
+
+The chromosome names in the probe file must match the genome. If they don't, either use a genome renamed to match, or give `inputs.chromosome_map`: a CSV with no header, one `probe name,genome name` per line. `check` reports any mismatch before a run starts.
+
+### assign
 
 | Setting | Variable in the bash workflow | Required | Default |
 |---|---|---|---|
@@ -65,7 +90,23 @@ Settings on the command line replace those in the file. Relative paths in the fi
 
 ## What a run writes
 
-The output folder must be new or empty. It holds copies of the inputs, so every run stands alone.
+The output folder must be new or empty. Every run also writes `pipeline.log`, with everything each step printed, in place of `_process.readme`. It also writes `resolved_config.yaml`, with the settings used, and `run_manifest.json`, with the status, counts, tool versions, input checksums and output paths.
+
+### build-db
+
+| Path | Contents |
+|---|---|
+| `versions/*_v001.fa` | Ref and Alt alleles, all uppercase, with one line per sequence |
+| `versions/*_v001_matchCnt_lut.txt` | The count table, starting at zero |
+| `probe/*_snpID_lut.csv` | The lookup table, or `*_rmDupTag_snpID_lut.csv` if markers were removed |
+| `probe/*.botloci` | Markers on the minus strand of the genome |
+| `report/*_markers_removed.tsv` | Markers removed, if any: in each line, the second column is the marker removed, and the first is the marker it duplicates or `no_alleles` |
+
+The allele database, count table and lookup table are the `allele_db`, `match_counts` and `marker_lut` inputs for `assign`. Markers can be removed for two reasons: their Ref allele is near-identical to another marker's, or they don't have both alleles because the probe bases don't match the genome or the amplicon doesn't align. They're removed from all three files, since `assign` could not use them.
+
+### assign
+
+It holds copies of the inputs, so every run stands alone.
 
 | Path | Contents |
 |---|---|
@@ -74,9 +115,6 @@ The output folder must be new or empty. It holds copies of the inputs, so every 
 | `versions/*_v00N_matchCnt_lut.txt` | The new count table |
 | `hapSearch/hapPA/` | The presence/absence matrix |
 | `hapSearch/sample_hapStatus/` | Presence or absence of each allele in each sample |
-| `pipeline.log` | Everything each step printed, replacing `_process.readme` |
-| `resolved_config.yaml` | The settings actually used |
-| `run_manifest.json` | Status, tool versions, input checksums and output paths |
 
 ## Working on the steps
 
@@ -84,7 +122,7 @@ The output folder must be new or empty. It holds copies of the inputs, so every 
 |---|---|---|
 | `src/hapapp_utils/steps/assign/` | `scripts/RefMatch_AltMatch_Other` | `assign`, build02 bash workflow |
 | `src/hapapp_utils/steps/hap_pa/` | `scripts/hapPA` | `assign`, `hap-pa`, `merge-pa`, build02 bash workflow |
-| `src/hapapp_utils/steps/core_db/` | `scripts/refAlt_coreDB` | build01 bash workflow |
+| `src/hapapp_utils/steps/core_db/` | `scripts/refAlt_coreDB` | `build-db`, build01 bash workflow |
 
 Each step is one module with the same functions and arguments as its original script. Only `_v1.1` in filenames became `_v1_1`, because a dot cannot appear in a module name.
 
@@ -99,7 +137,7 @@ or from Python, by calling that module's `main()` with a list of arguments.
 
 With `pip install -e .`, edits take effect straight away. The bash workflows in `workflow/` still work: set `SCRIPTS_DIR` and `HAPPA_SCRIPT_DIR` to the folders above.
 
-To add a step to `assign`, write its module with a `main(argv=None)` function, then call it from the matching stage in `src/hapapp_utils/workflows/assign.py`. To add a whole stage, add a `stage_<name>` method there and list it in `STAGES`, and also in `ASSIGN_STAGES` in `cli.py`.
+To add a step, write its module with a `main(argv=None)` function, then call it from the matching stage in `src/hapapp_utils/workflows/assign.py` or `build_db.py`. To add a whole stage, add a `stage_<name>` method there and list it in `STAGES`, and also in `ASSIGN_STAGES` or `BUILD_DB_STAGES` in `cli.py`.
 
 Run the tests with `pytest`. They use a small synthetic dataset, and workflow tests are skipped if BLAST is not installed. To compare a real run with saved results:
 
@@ -107,7 +145,20 @@ Run the tests with `pytest`. They use a small synthetic dataset, and workflow te
 HAPAPP_BASELINE_DIR=path/to/saved/run HAPAPP_BASELINE_CONFIG=path/to/run.yaml pytest -k real_data
 ```
 
-## Differences from the bash workflow
+## Differences from the bash workflows
+
+### build-db
+
+On the red clover panel, `build-db` and the build01 bash workflow produce the same alleles. It differs on purpose in these cases:
+
+- `esl-sfetch` and `seqkit` aren't needed. Sequences are fetched in Python, and no index file is written next to the genome.
+- A range that runs past the end of a sequence gives a shorter allele and a warning. `esl-sfetch` stops at that point, and the bash workflow carries on with what it has.
+- The first database always has one line per sequence. Otherwise it would depend on whether markers were removed.
+- The lookup table only holds markers in the MADC, because `db00` is given `--madc`. This follows HapApp's build01 workflow.
+- A marker without both alleles is removed and reported.
+- `flank_length` defaults to 150, as in HapApp's workflow. The bash workflow has 100.
+
+### assign
 
 On a panel with design length equal to sequencing length, `assign` output matches the bash workflow byte for byte. It differs on purpose in these cases:
 
@@ -118,6 +169,6 @@ On a panel with design length equal to sequencing length, `assign` output matche
 - A run stops if a new allele ID has no sequence in the new database.
 - The `_rename_v1.csv` report is also written when there are no new alleles.
 
-## Not yet in the CLI
+## What has been tested
 
-`build-db` (the build01 workflow) has not been ported. Its modules are in `steps/core_db/`, and `workflow/20260320-build01_species_refAlt_coreDB.bash` still runs them. This workflow has not been run since the move, because it needs a reference genome and probe design file to test.
+`build-db` was checked on the red clover panel, which only has SNPs. Its 5,998 alleles match that panel's existing database, apart from letter case, and it removes the same marker. Indels have only been tested on synthetic data in `tests/`.
