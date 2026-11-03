@@ -33,7 +33,7 @@
 exec &> ./HapApp_utils/data/species_allele_db_v001_process.readme
 
 # scripts and files ######
-SCRIPTS_DIR='./HapApp_utils/scripts/refAlt_coreDB'
+SCRIPTS_DIR='./HapApp_utils/src/hapapp_utils/steps/core_db'
 PROBE_FILE='./HapApp_utils/data/flankseq/species_DArTag-probe-design.txt'
 CHR_LEN='./HapApp_utils/data/ref/final_genome.fasta.len'
 REF_GENOME='./HapApp_utils/data/ref/final_genome.fasta'
@@ -129,7 +129,7 @@ blastn -task blastn-short -dust no -soft_masking false \
 
 
 printf '\n# 10). Get sfetch keys for the amplicons (because the 3 end of some amplicons are inaccurate)\n'
-python3 $SCRIPTS_DIR/db07_generate_ref_alt_sfetch_keys_from_blast_v1.1.py $SNPID_LUT $REF_ALT_BLAST_REV $REF_LEN
+python3 $SCRIPTS_DIR/db07_generate_ref_alt_sfetch_keys_from_blast_v1_1.py $SNPID_LUT $REF_ALT_BLAST_REV $REF_LEN
 
 
 printf '\n# 11). Get the amplicon sequences from the flanking sequences\n'

@@ -21,7 +21,7 @@ exec > >(tee "$PROCESS_README") 2>&1
 
 # Scripts and files
 CUTADAPT_PATH="/Library/Frameworks/Python.framework/Versions/3.9/bin/cutadapt"
-SCRIPTS_DIR='/Users/dongyan.zhao/PycharmProjects/BI/HapApp_utils/scripts/RefMatch_AltMatch_Other'
+SCRIPTS_DIR='/Users/dongyan.zhao/PycharmProjects/BI/HapApp_utils/src/hapapp_utils/steps/assign'
 CODE_VER='v1'
 
 MARKERID_LUT='/Users/dongyan.zhao/PycharmProjects/BI/HapApp_utils/data/hemp_test/lut/DArTag_Submission_Hemp_20260224_snpID_lut.csv'
@@ -54,7 +54,7 @@ COV=80
 IDEN=80
 
 #### 2. Parameters and files for generating haplotype presence-absence matrix
-HAPPA_SCRIPT_DIR="/Users/dongyan.zhao/PycharmProjects/BI/HapApp_utils/scripts/hapPA"
+HAPPA_SCRIPT_DIR="/Users/dongyan.zhao/PycharmProjects/BI/HapApp_utils/src/hapapp_utils/steps/hap_pa"
 PROJECT_DESCRIPTOR='P01_DHe25-10560_6plates'
 MIN_READS_FOR_PRESENCE=10
 
@@ -103,7 +103,7 @@ printf '# BLAST filtering thresholds: %s%% coverage, %s%% identity\n' "$COV" "$I
 printf "\n# 0). Update snpIDs to Chr_00xxxxxxx format in MADC"
 printf "\n  # This is necessary because marker IDs do not always follow the Chr_00xxxxxxx format\n"
 REPORT_SNPID="${REPORT%????}_snpID.csv"
-python3 "$SCRIPTS_DIR/step00_madc_update_snpID_v1.1.py" "$MARKERID_LUT" "$REPORT"
+python3 "$SCRIPTS_DIR/step00_madc_update_snpID_v1_1.py" "$MARKERID_LUT" "$REPORT"
 
 
 
@@ -205,7 +205,7 @@ printf "\n#  5). Check if there are duplicate alleles after removing adapters AN
 if test -f "$CUTADAPT"; then
     printf "  # CUTADAPT file: $CUTADAPT\n"
     printf "  # Temporary rename file: $TMP_RENAME\n"
-    python3 "$SCRIPTS_DIR/step03_check_cutadapt_allele_uniqueness_AND_update_tmp_rename_report_v1.1.py" "$CUTADAPT" "$ALLELE_DB_DIR/$ALLELE_DB" "$TMP_RENAME"
+    python3 "$SCRIPTS_DIR/step03_check_cutadapt_allele_uniqueness_AND_update_tmp_rename_report_v1_1.py" "$CUTADAPT" "$ALLELE_DB_DIR/$ALLELE_DB" "$TMP_RENAME"
     CUTADAPT_UNI="${CUTADAPT%???}_unique.fa"
     TMP_RENAME_UPDATED="${REPORT_SNPID%????}_tmp_rename_updatedSeq.csv"
 fi
