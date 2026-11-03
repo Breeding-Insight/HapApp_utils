@@ -71,7 +71,8 @@ def ext_ref_alt_amplicon_seq(report, snpID_lut):
     print('[INFO] Number of markers with snpIDs updated: ', len(set(new_markerIDs_list)))
     print('[INFO] Markers not in lookup table and their associated MADC records are not written to the output:', len(removed_markers))
     print('    \n'.join(removed_markers))
-    for i in set(new_markerIDs_list):
+    #### CHANGE: sorted, because a set's order changes from run to run
+    for i in sorted(set(new_markerIDs_list)):
         outp_matchCnt_lut.write(i + '|RefMatch\t0\n')
         outp_matchCnt_lut.write(i + '|AltMatch\t0\n')
         outp_matchCnt_lut.write(i + '|Other\t0\n')
