@@ -137,9 +137,9 @@ fi
 
 printf "\n# 3). Filter alleles with missing data and generate RefMatch and AltMatch allele fasta and a temporary report\n"
 if [ -n "${LUT_INSERT_SIZE_COL}" ]; then
-  python3 "$SCRIPTS_DIR/step01_filter_missing_AND_ext_matchAlleles_from_madc_v1.py" "$REPORT_SNPID" --lut "$MARKERID_LUT" --min_samples "$MIN_SAMPLES" --min_reads "$MIN_READS" --split_by_colID "$LUT_INSERT_SIZE_COL"
+  python3 "$SCRIPTS_DIR/step01_filter_missing_AND_ext_matchAlleles_from_madc_v1.py" "$REPORT_SNPID" --lut "$MARKERID_LUT" --min_samples "$MIN_SAMPLES" --min_reads "$MIN_READS" --first_sample_col "$FIRST_SAMPLE_COL" --split_by_colID "$LUT_INSERT_SIZE_COL"
 else
-  python3 "$SCRIPTS_DIR/step01_filter_missing_AND_ext_matchAlleles_from_madc_v1.py" "$REPORT_SNPID" --lut "$MARKERID_LUT" --min_samples "$MIN_SAMPLES" --min_reads "$MIN_READS" --split_by_colID ""
+  python3 "$SCRIPTS_DIR/step01_filter_missing_AND_ext_matchAlleles_from_madc_v1.py" "$REPORT_SNPID" --lut "$MARKERID_LUT" --min_samples "$MIN_SAMPLES" --min_reads "$MIN_READS" --first_sample_col "$FIRST_SAMPLE_COL" --split_by_colID ""
 fi
 # The output of this step is a temporary report file with renamed marker IDs and RefMatch and AltMatch allele fasta files
 TMP_RENAME="${REPORT_SNPID%????}_tmp_rename.csv"
@@ -238,10 +238,10 @@ fi
 
 printf "\n#  7). Determine status of RefMatch and AltMatch and Assign fixed IDs to them\n"
 if test -f "$CUTADAPT_UNI"; then
-    python3 "$SCRIPTS_DIR/step05_parse_madc_matchAlleles_blastn.py" "$ALLELE_DB_DIR/$MATCHCNT_LUT" "$ALLELE_DB_DIR/$ALLELE_DB" "$TMP_RENAME_UPDATED" "$BLAST_DBBLAST" "$SEQ_LEN" --cov_threshold "$COV" --iden_threshold "$IDEN" --allele-type-ground-truth "$ALLELE_TYPE"
+    python3 "$SCRIPTS_DIR/step05_parse_madc_matchAlleles_blastn.py" "$ALLELE_DB_DIR/$MATCHCNT_LUT" "$ALLELE_DB_DIR/$ALLELE_DB" "$TMP_RENAME_UPDATED" "$BLAST_DBBLAST" "$SEQ_LEN" --read_col "$FIRST_SAMPLE_COL" --cov_threshold "$COV" --iden_threshold "$IDEN" --allele-type-ground-truth "$ALLELE_TYPE"
     MADC_CLEANED="${REPORT_SNPID%????}_rename_updatedSeq.csv"
 else
-    python3 "$SCRIPTS_DIR/step05_parse_madc_matchAlleles_blastn.py" "$ALLELE_DB_DIR/$MATCHCNT_LUT" "$ALLELE_DB_DIR/$ALLELE_DB" "$TMP_RENAME" "$BLAST_DBBLAST" "$SEQ_LEN" --cov_threshold "$COV" --iden_threshold "$IDEN" --allele-type-ground-truth "$ALLELE_TYPE"
+    python3 "$SCRIPTS_DIR/step05_parse_madc_matchAlleles_blastn.py" "$ALLELE_DB_DIR/$MATCHCNT_LUT" "$ALLELE_DB_DIR/$ALLELE_DB" "$TMP_RENAME" "$BLAST_DBBLAST" "$SEQ_LEN" --read_col "$FIRST_SAMPLE_COL" --cov_threshold "$COV" --iden_threshold "$IDEN" --allele-type-ground-truth "$ALLELE_TYPE"
     MADC_CLEANED="${REPORT_SNPID%????}_rename.csv"
 fi
 
