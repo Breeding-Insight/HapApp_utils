@@ -132,7 +132,8 @@ def update_tmp_rename_report(tmp_rename_report, remove_alleles, df_concat, refAl
     df = df.set_index('AlleleID')
     # Remove duplicated alleles
     df = df.drop(remove_alleles)
-    df.update(df_concat, overwrite=True)
+    if df_concat is not None:
+        df.update(df_concat, overwrite=True)
     df_update = df.sort_index()
 
     # Update allele sequence: ref and alt to 81 bp and match alleles removing adapter sequence
@@ -213,6 +214,12 @@ def main(argv=None):
         update_tmp_rename_report(args.tmp_rename_report, remove_alleles, df_concat, refAlt_81bp_allele_dict, cutadapt_uni_allele_dict)
     else:
         print('\n  # No duplicate microhaplotypes found in:', args.cutadapt_fasta)
+        #### CHANGE: still write the trimmed sequences. Skipping this sent step05 the
+        #### untrimmed report, so database alleles kept their adapter sequence even
+        #### though BLAST had queried the trimmed FASTA.
+        cutadapt_uni_allele_dict = remove_duplicate_alleles_in_cutadapt_fasta(args.cutadapt_fasta, remove_alleles)
+        refAlt_81bp_allele_dict = put_81bp_ref_alt_allele_seq_in_dict(args.refAlt_81bp)
+        update_tmp_rename_report(args.tmp_rename_report, remove_alleles, None, refAlt_81bp_allele_dict, cutadapt_uni_allele_dict)
 
 
 if __name__ == '__main__':
