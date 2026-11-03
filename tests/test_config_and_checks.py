@@ -1,6 +1,7 @@
 import pytest
 import yaml
 
+from hapapp_utils import __version__
 from hapapp_utils.checks import (
     OK,
     PROBLEM,
@@ -77,6 +78,12 @@ def test_settings_round_trip_through_yaml(dataset):
     saved = yaml.safe_load(yaml.safe_dump(config_to_dict(load_config(dataset.config))))
     assert saved["filter"]["min_samples"] == 2
     assert saved["inputs"]["madc"] == str(dataset.madc.resolve())
+
+
+def test_code_version_follows_the_package_version(dataset):
+    assert __version__ == "2.0.0"
+    assert load_config(dataset.config).output.code_version == "v2"
+    assert load_config(dataset.config, ["output.code_version=v1"]).output.code_version == "v1"
 
 
 def test_cli_stage_names_match_the_workflow():

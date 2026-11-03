@@ -7,6 +7,8 @@ from types import SimpleNamespace
 
 import yaml
 
+from . import __version__
+
 REQUIRED = object()
 
 # Every setting: dotted key -> (kind, default). Thresholds that decide which alleles get a
@@ -33,7 +35,7 @@ SCHEMA = {
     "hap_pa.min_reads": ("int", 10),
     "hap_pa.descriptor": ("str", None),
     "output.dir": ("path", REQUIRED),
-    "output.code_version": ("str", "v1"),
+    "output.code_version": ("str", f"v{__version__.split('.')[0]}"),
 }
 
 BUILD_DB_SCHEMA = {
@@ -89,7 +91,7 @@ hap_pa:
 
 output:
   dir: runs/MY_PROJECT                     # must be new or empty
-  # code_version: v1
+  # code_version: v2                       # recorded in the report's Code_version column
 """
 
 BUILD_DB_TEMPLATE = """\

@@ -58,7 +58,8 @@ def test_assign_end_to_end(dataset, capsys):
     frame = final_report(dataset)
     assert_expected_alleles(frame)
     assert list(frame.columns) == ["Code_version", "AlleleID", "CloneID", "AlleleSequence"] + SAMPLES
-    assert set(frame["Code_version"]) == {"v1"}
+    assert set(frame["Code_version"]) == {"v2"}
+    assert manifest(dataset)["outputs"]["report"].endswith("_rename_v2.csv")
 
     versions = dataset.outdir / "versions"
     database = fasta_records(versions / "test_allele_db_v002.fa")
@@ -360,7 +361,9 @@ def test_real_data_matches_saved_results(tmp_path):
     """Compare a real run with earlier results: HAPAPP_BASELINE_DIR and HAPAPP_BASELINE_CONFIG."""
     baseline = Path(os.environ["HAPAPP_BASELINE_DIR"])
     outdir = tmp_path / "run"
-    assert main(["assign", "-c", os.environ["HAPAPP_BASELINE_CONFIG"], "-o", str(outdir)]) == EXIT_OK
+    # Saved results from the bash workflow carry its code version
+    assert main(["assign", "-c", os.environ["HAPAPP_BASELINE_CONFIG"], "-o", str(outdir),
+                 "--set", "output.code_version=v1"]) == EXIT_OK
     record = json.loads((outdir / "run_manifest.json").read_text())
     for key in ("report", "allele_db", "match_counts", "hap_pa", "hap_status"):
         name = record["outputs"][key]

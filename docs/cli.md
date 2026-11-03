@@ -84,7 +84,7 @@ The chromosome names in the probe file must match the genome. If they don't, eit
 | `hap_pa.min_reads` | `MIN_READS_FOR_PRESENCE` | no | 10 |
 | `hap_pa.descriptor` | `PROJECT_DESCRIPTOR` | no | `project_id` |
 | `output.dir` | none | yes | |
-| `output.code_version` | `CODE_VER` | no | `v1` |
+| `output.code_version` | `CODE_VER` | no | `v2`, the package's major version |
 
 `filter.min_samples` is lowered to 5% of the samples, rounded up, if that is smaller. `check` warns when this happens.
 
@@ -114,7 +114,7 @@ It holds copies of the inputs, so every run stands alone.
 
 | Path | Contents |
 |---|---|
-| `report/*_rename_v1.csv` | The report with fixed allele IDs and a `Code_version` column |
+| `report/*_rename_v2.csv` | The report with fixed allele IDs and a `Code_version` column |
 | `versions/*_v00N.fa` | The new allele database |
 | `versions/*_v00N_matchCnt_lut.txt` | The new count table |
 | `hapSearch/hapPA/` | The presence/absence matrix |
@@ -164,14 +164,14 @@ On the red clover panel, `build-db` and the build01 bash workflow produce the sa
 
 ### assign
 
-On a panel with design length equal to sequencing length, `assign` output matches the bash workflow byte for byte. It differs on purpose in these cases:
+On a panel with design length equal to sequencing length, `assign` output matches the bash workflow byte for byte, apart from the code version: `v2` in place of the workflow's `v1`. It differs on purpose in these cases:
 
 - Duplicate alleles stop the run with exit code 3 instead of 0.
 - Reads longer than the design are trimmed even when there is no insert size column. The bash workflow skipped trimming and continued.
 - The insert size column can hold plain numbers such as `81`. The bash workflow only found files named `*_insert*bp.fa`.
 - A missing or misspelled `dup_tags` path is an error instead of being skipped.
 - A run stops if a new allele ID has no sequence in the new database.
-- The `_rename_v1.csv` report is also written when there are no new alleles.
+- The report with the `Code_version` column is also written when there are no new alleles.
 
 ## What has been tested
 
