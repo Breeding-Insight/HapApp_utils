@@ -106,7 +106,7 @@ def _cmd_build_db(args):
         if counts["short_snp_alleles"]:
             print(f"  WARNING: {len(counts['short_snp_alleles'])} SNP alleles are shorter than requested; "
                   "raise database.flank_length")
-    print("  Full log               pipeline.log")
+    print(f"  Full log               {summary['process_readme']}")
     print("  Settings and versions  resolved_config.yaml, run_manifest.json")
     if "alleles" in counts:
         print("\nTo use it, put the allele database, count table and lookup table in your assign settings.")
@@ -131,7 +131,7 @@ def _cmd_assign(args):
         print(f"  Count table            {outputs['match_counts']}")
         print(f"  Presence/absence       {outputs['hap_pa']}")
         print(f"  Sample status          {outputs['hap_status']}")
-    print("  Full log               pipeline.log")
+    print(f"  Full log               {summary['process_readme']}")
     print("  Settings and versions  resolved_config.yaml, run_manifest.json")
     return EXIT_OK
 
@@ -162,12 +162,16 @@ def main(argv=None):
     except Exception as err:
         from .tools import ToolError
         from .workflows.assign import DuplicateAllelesFound
-        from .workflows.common import PipelineError
+        from .workflows.common import CannotStart, PipelineError
 
         if isinstance(err, DuplicateAllelesFound):
             print(f"[STOPPED] {err}", file=sys.stderr)
             return EXIT_DUPLICATES
+        if isinstance(err, CannotStart):
+            print(f"[ERROR] {err}", file=sys.stderr)
+            return EXIT_ERROR
         if isinstance(err, (PipelineError, ToolError)):
-            print(f"[ERROR] {err}\nSee pipeline.log in the output folder for details.", file=sys.stderr)
+            print(f"[ERROR] {err}\nSee the .readme file in the output folder's versions folder for details.",
+                  file=sys.stderr)
             return EXIT_ERROR
         raise

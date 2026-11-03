@@ -31,7 +31,7 @@ from ..steps.hap_pa import (
     util_haplotype_presence_absence_matrix as hap_pa,
 )
 from ..tools import required_tools, run_tool
-from .common import BLAST_COLUMNS, PipelineError, call_step, run_stages
+from .common import BLAST_COLUMNS, CannotStart, PipelineError, call_step, run_stages
 
 STAGES = {
     "update-ids": "Update marker IDs and check for duplicate alleles",
@@ -59,6 +59,8 @@ class _AssignRun:
         self.db = f"versions/{cfg.inputs.allele_db.stem}.fa"
         # step06 expects the count table to be named after the database
         self.counts = f"{self.db[:-3]}_matchCnt_lut.txt"
+        self.readme = f"{assign_ids.bump_version_tag(self.db)[:-3]}_process.readme"
+        self.no_new_allele_readme = f"{self.db[:-3]}_noNewAllele.readme"
         self.snpid = None
         self.base = None
         self.ids_report = None
@@ -71,9 +73,33 @@ class _AssignRun:
         self.hap_pa_matrix = None
         self.hap_status = None
 
+    def readme_header(self):
+        cfg = self.cfg
+        return [
+            f"# Scripts directory: {Path(check_unique.__file__).parent}",
+            f"# No-new-allele README: {self.no_new_allele_readme}",
+            f"# Report: {cfg.inputs.madc}",
+            f"# SNP ID LUT: {cfg.inputs.marker_lut}",
+            f"# Allele DB input: {cfg.inputs.allele_db}",
+            f"# Match-count LUT input: {cfg.inputs.match_counts}",
+            f"# Duplicate tags file: {cfg.inputs.dup_tags or 'none'}",
+            f"# Earlier presence/absence matrix: {cfg.inputs.previous_hap_pa or 'none'}",
+            f"# First sample column: {self.first_sample_col}",
+            f"# Panel design length: {cfg.panel.design_length}",
+            f"# Sequencing length: {cfg.panel.sequencing_length}",
+            f"# Insert size column: {cfg.panel.insert_size_column or 'none'}",
+            f"# Adapter: {cfg.panel.adapter}",
+            f"# Read filter: at least {cfg.filter.min_samples} samples with at least {cfg.filter.min_reads} reads",
+            f"# BLAST filtering thresholds: {cfg.blast.min_coverage}% coverage, {cfg.blast.min_identity}% identity",
+            f"# Allele type ground truth: {cfg.blast.allele_type_truth}",
+            f"# Reads for presence: {cfg.hap_pa.min_reads}",
+            f"# Project descriptor: {cfg.hap_pa.descriptor or cfg.project_id}",
+            f"# Code version: {cfg.output.code_version}",
+        ]
+
     def copy_inputs(self):
         for folder in ("report", "versions", "lut"):
-            Path(folder).mkdir()
+            Path(folder).mkdir(exist_ok=True)
         shutil.copyfile(self.cfg.inputs.madc, self.report)
         shutil.copyfile(self.cfg.inputs.marker_lut, self.lut)
         shutil.copyfile(self.cfg.inputs.allele_db, self.db)
@@ -179,6 +205,7 @@ class _AssignRun:
         new_counts = assign_ids.bump_version_tag(self.counts)
         if not os.path.exists(new_db):
             print("No new alleles found, so no new database was written.")
+            self.readme = self.no_new_allele_readme
             self._add_code_version()
             self._tidy()
             return "no new alleles"
@@ -270,7 +297,7 @@ def run_assign(cfg, until=None, verbose=False, command=None, console=None):
     findings, layout = preflight(cfg)
     problems = [finding.message for finding in findings if finding.level == PROBLEM]
     if problems:
-        raise PipelineError("Cannot start:\n  " + "\n  ".join(problems))
+        raise CannotStart("Cannot start:\n  " + "\n  ".join(problems))
     first_sample_col = cfg.panel.first_sample_column or layout.first_sample_column
     details = {"first_sample_column": first_sample_col, "samples": len(layout.samples)}
     return run_stages(cfg, _AssignRun(cfg, first_sample_col), STAGES, SCHEMA, required_tools(cfg), details,

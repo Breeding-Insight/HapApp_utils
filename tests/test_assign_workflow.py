@@ -88,7 +88,8 @@ def test_assign_end_to_end(dataset, capsys):
     assert record["inputs"]["madc"]["sha256"] == before[dataset.madc]
     assert "blastn" in record["tools"]
     assert (dataset.outdir / "resolved_config.yaml").exists()
-    assert (dataset.outdir / "pipeline.log").read_text()
+    assert record["process_readme"] == "versions/test_allele_db_v002_process.readme"
+    assert (dataset.outdir / record["process_readme"]).read_text()
 
     matrix = pd.read_csv(dataset.outdir / record["outputs"]["hap_pa"])
     assert set(frame["AlleleID"]) == set(matrix["AlleleID"])
@@ -100,7 +101,7 @@ def test_step_output_goes_to_the_log_unless_verbose(tmp_path, capsys):
     quiet = make_dataset(tmp_path / "quiet")
     assert run(quiet) == EXIT_OK
     assert "[INFO] Analyze BLAST results" not in capsys.readouterr().out
-    assert "[INFO] Analyze BLAST results" in (quiet.outdir / "pipeline.log").read_text()
+    assert "[INFO] Analyze BLAST results" in (quiet.outdir / manifest(quiet)["process_readme"]).read_text()
 
     loud = make_dataset(tmp_path / "loud")
     assert run(loud, "--verbose") == EXIT_OK
@@ -219,6 +220,33 @@ def test_merging_a_matrix_again_keeps_presence_counts_correct(tmp_path):
     assert matrix.loc["M1|Alt_0002", "Presence_count"] == 1
 
 
+def test_process_readme_lists_inputs_and_settings(dataset, capsys):
+    assert run(dataset, "--set", "filter.min_reads=11") == EXIT_OK
+    readme = (dataset.outdir / manifest(dataset)["process_readme"]).read_text()
+    header = readme[:readme.index("[1/7]")]
+    assert "--- Scripts, files, and parameters used ---" in header
+    for path in (dataset.madc, dataset.lookup, dataset.allele_db, dataset.match_counts):
+        assert str(path.resolve()) in header
+    assert "# First sample column: 17" in header
+    assert "# Panel design length: 109" in header
+    assert "# Sequencing length: 109" in header
+    assert "# BLAST filtering thresholds: 80.0% coverage, 85.0% identity" in header
+    assert "# Read filter: at least 2 samples with at least 11 reads" in header
+    assert "# Process README: versions/test_allele_db_v002_process.readme" in header
+    assert "# Tool version: blastn " in header
+    # The step output follows in the same file
+    assert "[INFO] Analyze BLAST results" in readme
+    assert "Full log               versions/test_allele_db_v002_process.readme" in capsys.readouterr().out
+
+
+def test_failed_run_keeps_its_process_readme(tmp_path):
+    data = make_dataset(tmp_path / "data", duplicate_allele=True)
+    assert run(data) == EXIT_DUPLICATES
+    readme = data.outdir / "versions" / "test_allele_db_v002_process.readme"
+    assert "[ERROR] The MADC has the same sequence" in readme.read_text()
+    assert manifest(data)["process_readme"] == "versions/test_allele_db_v002_process.readme"
+
+
 def test_no_new_alleles_writes_no_new_database(tmp_path):
     data = make_dataset(tmp_path / "data")
     # Keep only Ref, Alt and alleles already in the database
@@ -232,6 +260,10 @@ def test_no_new_alleles_writes_no_new_database(tmp_path):
     assert not (data.outdir / "versions" / "test_allele_db_v002.fa").exists()
     assert record["counts"]["report_rows"] == 9
     assert (data.outdir / record["outputs"]["hap_pa"]).name == "test_allele_db_v001_PROJECT_hapPA.csv"
+    # As in the bash workflow, the readme is named after the database that was kept
+    assert record["process_readme"] == "versions/test_allele_db_v001_noNewAllele.readme"
+    assert (data.outdir / record["process_readme"]).exists()
+    assert not (data.outdir / "versions" / "test_allele_db_v002_process.readme").exists()
 
 
 def test_two_alleles_with_one_sequence_in_a_new_database_are_collapsed(dataset):

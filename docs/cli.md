@@ -90,7 +90,11 @@ The chromosome names in the probe file must match the genome. If they don't, eit
 
 ## What a run writes
 
-The output folder must be new or empty. Every run also writes `pipeline.log`, with everything each step printed, in place of `_process.readme`. It also writes `resolved_config.yaml`, with the settings used, and `run_manifest.json`, with the status, counts, tool versions, input checksums and output paths.
+The output folder must be new or empty. Every run also writes:
+
+- **A process readme** in `versions/`, named as in the bash workflows: `<database>_v004_process.readme` for the version being written, or `<database>_v003_noNewAllele.readme` if there were no new alleles. It opens with the input files, settings and tool versions, followed by everything each step printed.
+- **`resolved_config.yaml`**, with the settings used.
+- **`run_manifest.json`**, with the status, counts, tool versions, input checksums and output paths.
 
 ### build-db
 

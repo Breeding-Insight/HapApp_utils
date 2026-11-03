@@ -28,7 +28,7 @@ from ..steps.core_db import (
     db09_rm_dupTags_from_LUT_and_db_v001 as remove_markers,
 )
 from ..tools import BUILD_DB_TOOLS, run_tool
-from .common import BLAST_COLUMNS, PipelineError, call_step, run_stages
+from .common import BLAST_COLUMNS, CannotStart, PipelineError, call_step, run_stages
 
 STAGES = {
     "lookup": "Build the marker lookup table",
@@ -63,11 +63,28 @@ class _BuildDbRun:
         self.final_lookup = None
         self.final_db = f"versions/{cfg.database.name}_v001.fa"
         self.final_counts = f"versions/{cfg.database.name}_v001_matchCnt_lut.txt"
+        self.readme = f"{self.final_db[:-3]}_process.readme"
         self.summary = {}
+
+    def readme_header(self):
+        cfg = self.cfg
+        return [
+            f"# Scripts directory: {Path(prepare_lookup.__file__).parent}",
+            f"# Probe design file: {cfg.inputs.probe_design}",
+            f"# Report: {cfg.inputs.madc}",
+            f"# Reference genome: {cfg.inputs.genome}",
+            f"# Chromosome map: {cfg.inputs.chromosome_map or 'none'}",
+            f"# Allele DB output: {self.final_db}",
+            f"# Match-count LUT output: {self.final_counts}",
+            f"# Allele length: {self.length}",
+            f"# Flank length: {self.flank}",
+            f"# Duplicate marker thresholds: {cfg.database.dup_min_identity} identity, "
+            f"{cfg.database.dup_min_coverage} coverage",
+        ]
 
     def copy_inputs(self):
         for folder in ("probe", "report", "versions"):
-            Path(folder).mkdir()
+            Path(folder).mkdir(exist_ok=True)
         header, rows = read_probe_rows(self.cfg.inputs.probe_design)
         write_probe_csv(header, rows, self.probe)
         shutil.copyfile(self.cfg.inputs.madc, self.report)
@@ -222,7 +239,7 @@ def run_build_db(cfg, until=None, verbose=False, command=None, console=None):
     findings = preflight_build_db(cfg)
     problems = [finding.message for finding in findings if finding.level == PROBLEM]
     if problems:
-        raise PipelineError("Cannot start:\n  " + "\n  ".join(problems))
+        raise CannotStart("Cannot start:\n  " + "\n  ".join(problems))
     details = {
         "madc_samples": len(read_layout(cfg.inputs.madc).samples),
         "madc_markers": len(read_marker_ids(cfg.inputs.madc)),

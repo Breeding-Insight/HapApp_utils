@@ -24,6 +24,10 @@ class PipelineError(Exception):
     """The run cannot continue, for a reason worded for the person running the tool."""
 
 
+class CannotStart(PipelineError):
+    """A problem found before the run began, so there is no process readme to read."""
+
+
 class _Tee:
     def __init__(self, *streams):
         self.streams = streams
@@ -65,11 +69,27 @@ def call_step(step, argv):
             raise PipelineError(f"{step.__name__} stopped with code {err.code}: {argv}") from err
 
 
+def _write_readme_header(log, run, manifest, outdir):
+    """The start of the process readme: which inputs and settings produced what follows."""
+    print(time.strftime("%c"), file=log)
+    print("\n --- Scripts, files, and parameters used ---", file=log)
+    print(f"# hapapp-utils version: {manifest['hapapp_utils_version']}", file=log)
+    print(f"# Command: {manifest['command']}", file=log)
+    for tool, version in manifest["tools"].items():
+        print(f"# Tool version: {tool} {str(version).removeprefix(f'{tool}: ')}", file=log)
+    print(f"# Output folder: {outdir}", file=log)
+    print(f"# Process README: {run.readme}", file=log)
+    for line in run.readme_header():
+        print(line, file=log)
+    print(file=log)
+
+
 def run_stages(cfg, run, stages, schema, tools, details=None, until=None, verbose=False, command=None, console=None):
     """Run a workflow's stages inside its output folder. Returns the saved manifest.
 
-    run provides copy_inputs(), outputs(), counts_summary() and a stage_<name>() method for each
-    stage. A stage may return a short note to show in place of "done".
+    run provides copy_inputs(), outputs(), counts_summary(), readme_header(), a readme path that
+    a stage may change, and a stage_<name>() method for each stage. A stage may return a short note
+    to show in place of "done".
     """
     console = console or sys.stdout
     outdir = cfg.output.dir
@@ -92,34 +112,41 @@ def run_stages(cfg, run, stages, schema, tools, details=None, until=None, verbos
         manifest_path.write_text(json.dumps(manifest, indent=2) + "\n")
 
     save_manifest()
-    with open(outdir / "pipeline.log", "w", buffering=1) as log:
-        stream = _Tee(log, console) if verbose else log
+    opened_as = run.readme
+    (outdir / opened_as).parent.mkdir(parents=True, exist_ok=True)
+    try:
+        with open(outdir / opened_as, "w", buffering=1) as log:
+            stream = _Tee(log, console) if verbose else log
 
-        def say(text):
-            print(text, file=console, flush=True)
-            print(text, file=log)
+            def say(text):
+                print(text, file=console, flush=True)
+                print(text, file=log)
 
-        try:
-            with _working_directory(outdir), contextlib.redirect_stdout(stream), contextlib.redirect_stderr(stream):
-                run.copy_inputs()
-                names = list(stages)
-                for number, name in enumerate(names, 1):
-                    say(f"[{number}/{len(names)}] {stages[name]}")
-                    start = time.monotonic()
-                    note = getattr(run, f"stage_{name.replace('-', '_')}")()
-                    say(f"      {note or 'done'} ({time.monotonic() - start:.0f} s)")
-                    if name == until:
-                        break
-                manifest["status"] = "finished" if until in (None, names[-1]) else f"stopped after {until}"
-                manifest["outputs"] = {key: value for key, value in run.outputs().items()
-                                       if value and os.path.exists(value)}
-                manifest["counts"] = run.counts_summary()
-        except Exception as err:
-            manifest["status"] = "failed"
-            manifest["error"] = str(err)
-            print(f"[ERROR] {err}", file=log)
-            raise
-        finally:
-            manifest["finished"] = datetime.now().isoformat(timespec="seconds")
-            save_manifest()
+            _write_readme_header(log, run, manifest, outdir)
+            try:
+                with _working_directory(outdir), contextlib.redirect_stdout(stream), contextlib.redirect_stderr(stream):
+                    run.copy_inputs()
+                    names = list(stages)
+                    for number, name in enumerate(names, 1):
+                        say(f"[{number}/{len(names)}] {stages[name]}")
+                        start = time.monotonic()
+                        note = getattr(run, f"stage_{name.replace('-', '_')}")()
+                        say(f"      {note or 'done'} ({time.monotonic() - start:.0f} s)")
+                        if name == until:
+                            break
+                    manifest["status"] = "finished" if until in (None, names[-1]) else f"stopped after {until}"
+                    manifest["outputs"] = {key: value for key, value in run.outputs().items()
+                                           if value and os.path.exists(value)}
+                    manifest["counts"] = run.counts_summary()
+            except Exception as err:
+                manifest["status"] = "failed"
+                manifest["error"] = str(err)
+                print(f"[ERROR] {err}", file=log)
+                raise
+    finally:
+        if run.readme != opened_as:
+            os.replace(outdir / opened_as, outdir / run.readme)
+        manifest["process_readme"] = run.readme
+        manifest["finished"] = datetime.now().isoformat(timespec="seconds")
+        save_manifest()
     return manifest

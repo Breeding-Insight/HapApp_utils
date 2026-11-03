@@ -248,6 +248,21 @@ def test_build_db_end_to_end(build_data, capsys):
 
 
 @requires_tools
+def test_process_readme_lists_inputs_and_settings(build_data, capsys):
+    assert build(build_data) == EXIT_OK
+    assert manifest(build_data)["process_readme"] == "versions/core_db_v001_process.readme"
+    readme = (build_data.outdir / "versions" / "core_db_v001_process.readme").read_text()
+    header = readme[:readme.index("[1/6]")]
+    assert "--- Scripts, files, and parameters used ---" in header
+    for name in ("probe.xlsx", "PROJECT_MADC.csv", "genome.fna", "chromosome_names.csv"):
+        assert str((build_data.folder / name).resolve()) in header
+    assert "# Allele length: 109" in header
+    assert "# Flank length: 150" in header
+    assert "# Tool version: mmseqs " in header
+    assert "Number of markers in probe design file" in readme  # the step output
+
+
+@requires_tools
 def test_problem_markers_are_removed_from_all_outputs(build_data):
     assert build(build_data) == EXIT_OK
     counts = manifest(build_data)["counts"]
