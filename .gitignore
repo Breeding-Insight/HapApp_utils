@@ -30,3 +30,10 @@ data/DCnut26-11629*
 .idea/
 
 hemp_test
+
+__pycache__/
+*.pyc
+*.egg-info/
+build/
+dist/
+.pytest_cache/
