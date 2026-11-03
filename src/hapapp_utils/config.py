@@ -36,6 +36,20 @@ SCHEMA = {
     "output.code_version": ("str", "v1"),
 }
 
+BUILD_DB_SCHEMA = {
+    "inputs.probe_design": ("path", REQUIRED),
+    "inputs.madc": ("path", REQUIRED),
+    "inputs.genome": ("path", REQUIRED),
+    "inputs.chromosome_map": ("path", None),
+    "database.name": ("str", REQUIRED),
+    "database.allele_length": ("int", REQUIRED),
+    "database.flank_length": ("int", 150),
+    "database.dup_min_identity": ("float", 0.95),
+    "database.dup_min_coverage": ("float", 0.99),
+    "database.threads": ("int", 6),
+    "output.dir": ("path", REQUIRED),
+}
+
 TEMPLATE = """\
 # Settings for: hapapp-utils assign -c this_file.yaml
 # Relative paths are resolved from the folder holding this file.
@@ -78,6 +92,28 @@ output:
   # code_version: v1
 """
 
+BUILD_DB_TEMPLATE = """\
+# Settings for: hapapp-utils build-db -c this_file.yaml
+# Relative paths are resolved from the folder holding this file.
+
+inputs:
+  probe_design: probe_design.xlsx          # the DArT template, as .xlsx, .csv or tab-delimited .txt
+  madc: MY_PROJECT_MADC.csv                # any report from this panel
+  genome: reference_genome.fa
+  # chromosome_map: chromosome_names.csv   # probe name,genome name; if the genome names differ
+
+database:
+  name: species_allele_db                  # the first version is written as species_allele_db_v001.fa
+  allele_length: 109                       # can be longer than the reads, to allow for longer reads later
+  # flank_length: 150                      # bases fetched either side of each marker
+  # dup_min_identity: 0.95                 # markers with Ref alleles this similar count as duplicates
+  # dup_min_coverage: 0.99
+  # threads: 6
+
+output:
+  dir: runs/core_db                        # must be new or empty
+"""
+
 
 class ConfigError(Exception):
     """A problem with the run settings, worded for the person running the tool."""
@@ -111,25 +147,38 @@ def _convert(key, kind, value, base):
 
 
 def _validate(values):
-    def at_least_one(key):
-        if values[key] is not None and values[key] < 1:
-            raise ConfigError(f"{key} must be at least 1, got {values[key]}")
-
     for key in ("panel.design_length", "panel.sequencing_length", "panel.first_sample_column",
-                "filter.min_samples", "filter.min_reads", "blast.threads", "hap_pa.min_reads"):
-        at_least_one(key)
+                "filter.min_samples", "filter.min_reads", "blast.threads", "hap_pa.min_reads",
+                "database.allele_length", "database.flank_length", "database.threads"):
+        if values.get(key) is not None and values[key] < 1:
+            raise ConfigError(f"{key} must be at least 1, got {values[key]}")
     for key in ("blast.min_coverage", "blast.min_identity"):
-        if not 0 < values[key] <= 100:
+        if key in values and not 0 < values[key] <= 100:
             raise ConfigError(f"{key} must be above 0 and at most 100, got {values[key]}")
-    if values["blast.allele_type_truth"] not in ("report", "db"):
+    for key in ("database.dup_min_identity", "database.dup_min_coverage"):
+        if key in values and not 0 < values[key] <= 1:
+            raise ConfigError(f"{key} must be above 0 and at most 1, got {values[key]}")
+    if values.get("blast.allele_type_truth", "report") not in ("report", "db"):
         raise ConfigError("blast.allele_type_truth must be report or db, "
                           f"got {values['blast.allele_type_truth']!r}")
-    if "/" in values["project_id"] or "\\" in values["project_id"]:
-        raise ConfigError(f"project_id cannot contain a slash, got {values['project_id']!r}")
+    for key in ("project_id", "database.name"):
+        if key in values and ("/" in values[key] or "\\" in values[key]):
+            raise ConfigError(f"{key} cannot contain a slash, got {values[key]!r}")
 
 
-def load_config(path, overrides=(), outdir=None):
+def workflow_of(path):
+    """Which workflow a settings file is for, going by its sections."""
+    with open(path) as handle:
+        try:
+            raw = yaml.safe_load(handle)
+        except yaml.YAMLError as err:
+            raise ConfigError(f"Could not read {path}: {err}") from err
+    return "build-db" if isinstance(raw, dict) and "database" in raw else "assign"
+
+
+def load_config(path, overrides=(), outdir=None, schema=None):
     """Read a YAML file and apply overrides: command line first, then the file, then defaults."""
+    schema = SCHEMA if schema is None else schema
     path = Path(path)
     if not path.is_file():
         raise ConfigError(f"Settings file not found: {path}")
@@ -143,9 +192,9 @@ def load_config(path, overrides=(), outdir=None):
 
     file_base = path.resolve().parent
     # A section whose settings are all commented out reads as an empty value
-    sections = {key.partition(".")[0] for key in SCHEMA if "." in key}
+    section_names = {key.partition(".")[0] for key in schema if "." in key}
     supplied = {key: (value, file_base) for key, value in _flatten(raw).items()
-                if not (key in sections and value is None)}
+                if not (key in section_names and value is None)}
     for item in overrides:
         key, separator, text = item.partition("=")
         if not separator:
@@ -154,13 +203,13 @@ def load_config(path, overrides=(), outdir=None):
     if outdir is not None:
         supplied["output.dir"] = (str(outdir), Path.cwd())
 
-    unknown = sorted(set(supplied) - set(SCHEMA))
+    unknown = sorted(set(supplied) - set(schema))
     if unknown:
-        raise ConfigError(f"Unknown setting(s): {', '.join(unknown)}. Valid settings: {', '.join(SCHEMA)}")
+        raise ConfigError(f"Unknown setting(s): {', '.join(unknown)}. Valid settings: {', '.join(schema)}")
 
     values = {}
     missing = []
-    for key, (kind, default) in SCHEMA.items():
+    for key, (kind, default) in schema.items():
         value, base = supplied.get(key, (None, file_base))
         if value is None:
             if default is REQUIRED:
@@ -183,10 +232,10 @@ def load_config(path, overrides=(), outdir=None):
                               for key, value in sections.items()})
 
 
-def config_to_dict(cfg):
+def config_to_dict(cfg, schema=None):
     """The settings as plain data, for saving alongside a run."""
     result = {}
-    for key in SCHEMA:
+    for key in SCHEMA if schema is None else schema:
         section, dot, name = key.partition(".")
         if dot:
             value = getattr(getattr(cfg, section), name)

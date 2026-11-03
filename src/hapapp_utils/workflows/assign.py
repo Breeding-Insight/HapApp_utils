@@ -9,22 +9,13 @@ from __future__ import annotations
 
 import contextlib
 import glob
-import hashlib
-import json
 import os
-import platform
 import re
 import shutil
-import sys
-import time
-from datetime import datetime
 from pathlib import Path
 
-import yaml
-
-from .. import __version__
 from ..checks import PROBLEM, minted_ids_missing_from_fasta, preflight, read_fasta_ids
-from ..config import config_to_dict
+from ..config import SCHEMA
 from ..steps.assign import (
     step00_check_allele_uniqueness as check_unique,
     step00_madc_update_snpID_v1_1 as update_ids,
@@ -39,7 +30,8 @@ from ..steps.hap_pa import (
     util_hapDB_merge_presence_absence_PIhaps as merge_pa,
     util_haplotype_presence_absence_matrix as hap_pa,
 )
-from ..tools import required_tools, run_tool, tool_version
+from ..tools import required_tools, run_tool
+from .common import BLAST_COLUMNS, PipelineError, call_step, run_stages
 
 STAGES = {
     "update-ids": "Update marker IDs and check for duplicate alleles",
@@ -50,56 +42,10 @@ STAGES = {
     "db-check": "Check the new database",
     "hap-pa": "Build presence/absence tables",
 }
-BLAST_COLUMNS = "6 qseqid qlen qstart qend sseqid slen sstart send length qcovs pident evalue"
-
-
-class PipelineError(Exception):
-    """The run cannot continue, for a reason worded for the person running the tool."""
 
 
 class DuplicateAllelesFound(PipelineError):
     """The MADC has the same sequence under different allele IDs."""
-
-
-class _Tee:
-    def __init__(self, *streams):
-        self.streams = streams
-
-    def write(self, text):
-        for stream in self.streams:
-            stream.write(text)
-        return len(text)
-
-    def flush(self):
-        for stream in self.streams:
-            stream.flush()
-
-
-@contextlib.contextmanager
-def _working_directory(path):
-    previous = os.getcwd()
-    os.chdir(path)
-    try:
-        yield
-    finally:
-        os.chdir(previous)
-
-
-def _sha256(path):
-    digest = hashlib.sha256()
-    with open(path, "rb") as handle:
-        for block in iter(lambda: handle.read(1 << 20), b""):
-            digest.update(block)
-    return digest.hexdigest()
-
-
-def _call_step(step, argv):
-    """Run a step's main(), turning its argument errors into a normal failure."""
-    try:
-        step.main(argv)
-    except SystemExit as err:
-        if err.code not in (0, None):
-            raise PipelineError(f"{step.__name__} rejected its arguments: {argv}") from err
 
 
 class _AssignRun:
@@ -135,17 +81,17 @@ class _AssignRun:
 
     def stage_update_ids(self):
         cfg = self.cfg
-        _call_step(update_ids, [self.lut, self.report])
+        call_step(update_ids, [self.lut, self.report])
         stem = self.report[:-4]
         self.snpid = f"{stem}_snpID.csv"
         if cfg.inputs.dup_tags and cfg.inputs.dup_tags.stat().st_size > 0:
             tags = f"lut/{cfg.inputs.dup_tags.name}"
             shutil.copyfile(cfg.inputs.dup_tags, tags)
             without_tags = f"{stem}_snpID_rmDup.csv"
-            _call_step(remove_tags, [tags, self.snpid, without_tags])
+            call_step(remove_tags, [tags, self.snpid, without_tags])
             self.snpid = without_tags
         self.base = self.snpid[:-4]
-        _call_step(check_unique, [self.snpid, self.first_sample_col])
+        call_step(check_unique, [self.snpid, self.first_sample_col])
         duplicates = f"{self.base}_dup.csv"
         if os.path.exists(duplicates):
             raise DuplicateAllelesFound(
@@ -153,7 +99,7 @@ class _AssignRun:
 
     def stage_filter(self):
         cfg = self.cfg
-        _call_step(filter_alleles, [
+        call_step(filter_alleles, [
             self.snpid, "--lut", self.lut,
             "--min_samples", str(cfg.filter.min_samples),
             "--min_reads", str(cfg.filter.min_reads),
@@ -203,7 +149,7 @@ class _AssignRun:
             self._trim_mixed_inserts(trimmed)
         else:
             self._cutadapt(f"{self.base}_match.fa", trimmed)
-        _call_step(update_trimmed, [trimmed, self.db, self.ids_report])
+        call_step(update_trimmed, [trimmed, self.db, self.ids_report])
         self.ids_report = f"{self.base}_tmp_rename_updatedSeq.csv"
         self.blast_query = f"{self.base}_match_cutadapt_unique.fa"
         self.final_report = f"{self.base}_rename_updatedSeq.csv"
@@ -219,7 +165,7 @@ class _AssignRun:
 
     def stage_assign_ids(self):
         cfg = self.cfg
-        _call_step(assign_ids, [
+        call_step(assign_ids, [
             self.counts, self.db, self.ids_report, self.blast_out, str(cfg.panel.sequencing_length),
             "--read_col", self.first_sample_col,
             "--cov_threshold", str(cfg.blast.min_coverage),
@@ -243,14 +189,14 @@ class _AssignRun:
                                 f"{missing[:5]}. The database would be inconsistent, so the run was stopped.")
 
         run_tool(["makeblastdb", "-in", new_db, "-dbtype", "nucl"])
-        _call_step(check_db, [new_db])
+        call_step(check_db, [new_db])
         self.final_db, self.final_counts = new_db, new_counts
         duplicates = f"{new_db}.dup.csv"
         if os.path.exists(duplicates):
             self.final_db = assign_ids.bump_version_tag(new_db)
             self.final_counts = f"{self.final_db[:-3]}_matchCnt_lut.txt"
             run_tool(["makeblastdb", "-in", self.final_db, "-dbtype", "nucl"])
-            _call_step(update_madc_ids, [duplicates, self.madc_cleaned])
+            call_step(update_madc_ids, [duplicates, self.madc_cleaned])
             without_duplicates = f"{self.madc_cleaned[:-4]}_rmDup.csv"
             if os.path.exists(without_duplicates):
                 self.madc_cleaned = without_duplicates
@@ -278,7 +224,7 @@ class _AssignRun:
 
     def stage_hap_pa(self):
         cfg = self.cfg
-        _call_step(hap_pa, [
+        call_step(hap_pa, [
             "--madc", self.madc_cleaned,
             "--descriptor", cfg.hap_pa.descriptor or cfg.project_id,
             "--read_threshold", str(cfg.hap_pa.min_reads),
@@ -294,7 +240,7 @@ class _AssignRun:
         if cfg.inputs.previous_hap_pa:
             previous = f"hapSearch/hapPA/previous_{cfg.inputs.previous_hap_pa.name}"
             shutil.copyfile(cfg.inputs.previous_hap_pa, previous)
-            _call_step(merge_pa, ["--reports", f"{previous},{project_matrix}", "--output", self.hap_pa_matrix])
+            call_step(merge_pa, ["--reports", f"{previous},{project_matrix}", "--output", self.hap_pa_matrix])
         else:
             shutil.copyfile(project_matrix, self.hap_pa_matrix)
 
@@ -320,64 +266,12 @@ class _AssignRun:
 
 
 def run_assign(cfg, until=None, verbose=False, command=None, console=None):
-    """Run the workflow up to and including the stage named by until. Returns a summary."""
-    console = console or sys.stdout
+    """Run the workflow up to and including the stage named by until. Returns the saved manifest."""
     findings, layout = preflight(cfg)
     problems = [finding.message for finding in findings if finding.level == PROBLEM]
     if problems:
         raise PipelineError("Cannot start:\n  " + "\n  ".join(problems))
-
-    outdir = cfg.output.dir
-    outdir.mkdir(parents=True, exist_ok=True)
     first_sample_col = cfg.panel.first_sample_column or layout.first_sample_column
-    (outdir / "resolved_config.yaml").write_text(yaml.safe_dump(config_to_dict(cfg), sort_keys=False))
-    manifest = {
-        "hapapp_utils_version": __version__,
-        "python": platform.python_version(),
-        "command": command,
-        "started": datetime.now().isoformat(timespec="seconds"),
-        "status": "running",
-        "first_sample_column": first_sample_col,
-        "samples": len(layout.samples),
-        "tools": {tool: tool_version(tool) for tool in required_tools(cfg)},
-        "inputs": {name: {"path": str(path), "sha256": _sha256(path)}
-                   for name, path in vars(cfg.inputs).items() if path is not None},
-    }
-    manifest_path = outdir / "run_manifest.json"
-
-    def save_manifest():
-        manifest_path.write_text(json.dumps(manifest, indent=2) + "\n")
-
-    save_manifest()
-    run = _AssignRun(cfg, first_sample_col)
-    with open(outdir / "pipeline.log", "w", buffering=1) as log:
-        stream = _Tee(log, console) if verbose else log
-
-        def say(text):
-            print(text, file=console, flush=True)
-            print(text, file=log)
-
-        try:
-            with _working_directory(outdir), contextlib.redirect_stdout(stream), contextlib.redirect_stderr(stream):
-                run.copy_inputs()
-                names = list(STAGES)
-                for number, name in enumerate(names, 1):
-                    say(f"[{number}/{len(names)}] {STAGES[name]}")
-                    start = time.monotonic()
-                    note = getattr(run, f"stage_{name.replace('-', '_')}")()
-                    say(f"      {note or 'done'} ({time.monotonic() - start:.0f} s)")
-                    if name == until:
-                        break
-                manifest["status"] = "finished" if until in (None, names[-1]) else f"stopped after {until}"
-                manifest["outputs"] = {key: value for key, value in run.outputs().items()
-                                       if value and os.path.exists(value)}
-                manifest["counts"] = run.counts_summary()
-        except Exception as err:
-            manifest["status"] = "failed"
-            manifest["error"] = str(err)
-            print(f"[ERROR] {err}", file=log)
-            raise
-        finally:
-            manifest["finished"] = datetime.now().isoformat(timespec="seconds")
-            save_manifest()
-    return manifest
+    details = {"first_sample_column": first_sample_col, "samples": len(layout.samples)}
+    return run_stages(cfg, _AssignRun(cfg, first_sample_col), STAGES, SCHEMA, required_tools(cfg), details,
+                      until=until, verbose=verbose, command=command, console=console)

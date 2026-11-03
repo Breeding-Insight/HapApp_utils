@@ -13,6 +13,7 @@ authors = [{ name = "Breeding Insight" }]
 dependencies = [
   "biopython",
   "cutadapt",
+  "openpyxl",
   "pandas",
   "pyyaml",
 ]

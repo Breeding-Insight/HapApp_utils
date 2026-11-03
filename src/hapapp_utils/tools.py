@@ -5,7 +5,8 @@ from __future__ import annotations
 import shutil
 import subprocess
 
-VERSION_FLAGS = {"blastn": "-version", "makeblastdb": "-version", "cutadapt": "--version"}
+VERSION_FLAGS = {"blastn": "-version", "makeblastdb": "-version", "cutadapt": "--version", "mmseqs": "version"}
+BUILD_DB_TOOLS = ["makeblastdb", "blastn", "mmseqs"]
 
 
 class ToolError(Exception):

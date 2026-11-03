@@ -7,10 +7,11 @@ import sys
 from pathlib import Path
 
 from . import __version__
-from .config import TEMPLATE, ConfigError, load_config
+from .config import BUILD_DB_SCHEMA, BUILD_DB_TEMPLATE, TEMPLATE, ConfigError, load_config, workflow_of
 
 EXIT_OK, EXIT_ERROR, EXIT_DUPLICATES = 0, 1, 3
 ASSIGN_STAGES = ("update-ids", "filter", "trim", "blast", "assign-ids", "db-check", "hap-pa")
+BUILD_DB_STAGES = ("lookup", "flanks", "orient", "alleles", "duplicates", "finish")
 
 
 def _build_parser():
@@ -22,6 +23,8 @@ def _build_parser():
 
     init = commands.add_parser("init", help="write a commented settings file to fill in")
     init.add_argument("path", nargs="?", default="run.yaml", help="where to write it (default: run.yaml)")
+    init.add_argument("--workflow", choices=("assign", "build-db"), default="assign",
+                      help="which command the settings are for (default: assign)")
     init.add_argument("--force", action="store_true", help="replace the file if it already exists")
 
     def add_run_options(sub):
@@ -32,6 +35,11 @@ def _build_parser():
 
     check = commands.add_parser("check", help="check tools, inputs and settings without running anything")
     add_run_options(check)
+
+    build_db = commands.add_parser("build-db", help="build a panel's first allele database from the reference genome")
+    add_run_options(build_db)
+    build_db.add_argument("--until", choices=BUILD_DB_STAGES, help="stop after this stage")
+    build_db.add_argument("-v", "--verbose", action="store_true", help="also show each step's output, not only in the log")
 
     assign = commands.add_parser("assign", help="turn a MADC into fixed allele IDs and a new database version")
     add_run_options(assign)
@@ -54,16 +62,20 @@ def _cmd_init(args):
     if path.exists() and not args.force:
         print(f"[ERROR] {path} already exists. Use --force to replace it.", file=sys.stderr)
         return EXIT_ERROR
-    path.write_text(TEMPLATE)
+    path.write_text(BUILD_DB_TEMPLATE if args.workflow == "build-db" else TEMPLATE)
     print(f"Wrote {path}. Fill it in, then run: hapapp-utils check -c {path}")
     return EXIT_OK
 
 
 def _cmd_check(args):
-    from .checks import OK, PROBLEM, WARNING, preflight
+    from .checks import OK, PROBLEM, WARNING, preflight, preflight_build_db
 
-    cfg = load_config(args.config, args.overrides, args.outdir)
-    findings, _ = preflight(cfg)
+    if not Path(args.config).is_file():
+        raise ConfigError(f"Settings file not found: {args.config}")
+    if workflow_of(args.config) == "build-db":
+        findings = preflight_build_db(load_config(args.config, args.overrides, args.outdir, BUILD_DB_SCHEMA))
+    else:
+        findings, _ = preflight(load_config(args.config, args.overrides, args.outdir))
     labels = {OK: "  ok     ", WARNING: "  WARNING", PROBLEM: "  PROBLEM"}
     for finding in findings:
         print(f"{labels[finding.level]}  {finding.message}")
@@ -71,6 +83,34 @@ def _cmd_check(args):
     warnings = sum(finding.level == WARNING for finding in findings)
     print(f"\n{problems} problem(s), {warnings} warning(s).")
     return EXIT_ERROR if problems else EXIT_OK
+
+
+def _cmd_build_db(args):
+    from .workflows.build_db import run_build_db
+
+    cfg = load_config(args.config, args.overrides, args.outdir, BUILD_DB_SCHEMA)
+    summary = run_build_db(cfg, until=args.until, verbose=args.verbose, command=" ".join(sys.argv))
+    print(f"\n{summary['status'].capitalize()}. Results are in {cfg.output.dir}")
+    counts = summary["counts"]
+    outputs = summary["outputs"]
+    if "alleles" in counts:
+        print(f"  Allele database        {outputs['allele_db']}")
+        print(f"                         {counts['alleles']} alleles from {counts['markers_in_database']} markers")
+        print(f"  Count table            {outputs['match_counts']}")
+        print(f"  Lookup table           {outputs['marker_lut']}")
+        print(f"  Minus-strand markers   {outputs['bottom_strand_markers']}")
+        removed = counts["markers_removed_as_duplicates"] + counts["markers_removed_without_alleles"]
+        if removed:
+            print(f"  Markers removed        {outputs['markers_removed']}")
+            print(f"                         {', '.join(removed[:5])}{' ...' if len(removed) > 5 else ''}")
+        if counts["short_snp_alleles"]:
+            print(f"  WARNING: {len(counts['short_snp_alleles'])} SNP alleles are shorter than requested; "
+                  "raise database.flank_length")
+    print("  Full log               pipeline.log")
+    print("  Settings and versions  resolved_config.yaml, run_manifest.json")
+    if "alleles" in counts:
+        print("\nTo use it, put the allele database, count table and lookup table in your assign settings.")
+    return EXIT_OK
 
 
 def _cmd_assign(args):
@@ -112,7 +152,7 @@ def _cmd_merge_pa(args):
 
 def main(argv=None):
     args = _build_parser().parse_args(argv)
-    handlers = {"init": _cmd_init, "check": _cmd_check, "assign": _cmd_assign,
+    handlers = {"init": _cmd_init, "check": _cmd_check, "build-db": _cmd_build_db, "assign": _cmd_assign,
                 "hap-pa": _cmd_hap_pa, "merge-pa": _cmd_merge_pa}
     try:
         return handlers[args.command](args)
@@ -121,7 +161,8 @@ def main(argv=None):
         return EXIT_ERROR
     except Exception as err:
         from .tools import ToolError
-        from .workflows.assign import DuplicateAllelesFound, PipelineError
+        from .workflows.assign import DuplicateAllelesFound
+        from .workflows.common import PipelineError
 
         if isinstance(err, DuplicateAllelesFound):
             print(f"[STOPPED] {err}", file=sys.stderr)

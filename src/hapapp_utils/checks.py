@@ -7,8 +7,10 @@ import re
 from collections import Counter
 from dataclasses import dataclass
 
+from .fasta import read_lengths
 from .madc import read_layout, read_marker_ids
-from .tools import required_tools, tool_version
+from .probe_design import read_probe_rows
+from .tools import BUILD_DB_TOOLS, required_tools, tool_version
 
 OK, WARNING, PROBLEM = "ok", "warning", "problem"
 
@@ -61,8 +63,8 @@ def counted_ids_missing_from_fasta(counts_path, fasta_path):
             if f"{key}_{serial:04d}" not in fasta_ids]
 
 
-def _check_tools(cfg, findings):
-    for tool in required_tools(cfg):
+def _check_tools(tools, findings):
+    for tool in tools:
         version = tool_version(tool)
         if version is None:
             findings.append(Finding(PROBLEM, f"{tool} is not installed or not on PATH"))
@@ -149,18 +151,82 @@ def _check_database(cfg, findings):
         findings.append(Finding(OK, "Count table and allele database agree"))
 
 
-def preflight(cfg):
-    """Everything that can be checked before starting. Returns (findings, MADC layout or None)."""
-    findings = []
-    _check_tools(cfg, findings)
-    layout = None
-    if _check_inputs_exist(cfg, findings):
-        layout = _check_madc(cfg, findings)
-        _check_lookup_table(cfg, findings)
-        _check_database(cfg, findings)
+def _check_output_folder(cfg, findings):
     outdir = cfg.output.dir
     if outdir.exists() and any(outdir.iterdir()):
         findings.append(Finding(PROBLEM, f"Output folder is not empty: {outdir}"))
     else:
         findings.append(Finding(OK, f"Output folder: {outdir}"))
+
+
+def preflight(cfg):
+    """Everything that can be checked before starting. Returns (findings, MADC layout or None)."""
+    findings = []
+    _check_tools(required_tools(cfg), findings)
+    layout = None
+    if _check_inputs_exist(cfg, findings):
+        layout = _check_madc(cfg, findings)
+        _check_lookup_table(cfg, findings)
+        _check_database(cfg, findings)
+    _check_output_folder(cfg, findings)
     return findings, layout
+
+
+def read_chromosome_map(path):
+    """A two-column CSV of probe chromosome name, genome chromosome name."""
+    if path is None:
+        return {}
+    names = {}
+    with open(path, encoding="utf-8-sig") as handle:
+        for line in handle:
+            cells = [cell.strip() for cell in line.split(",")]
+            if len(cells) >= 2 and cells[0] and cells[1]:
+                names[cells[0]] = cells[1]
+    return names
+
+
+def _check_probe_and_genome(cfg, findings):
+    try:
+        _, rows = read_probe_rows(cfg.inputs.probe_design)
+        layout = read_layout(cfg.inputs.madc)
+    except ValueError as err:
+        findings.append(Finding(PROBLEM, str(err)))
+        return
+    madc_markers = read_marker_ids(cfg.inputs.madc)
+    used = [row for row in rows if row[0] in madc_markers]
+    findings.append(Finding(OK, f"Probe design: {len(rows)} markers, {len(used)} of them in the MADC "
+                                f"({len(madc_markers)} markers, {len(layout.samples)} samples)"))
+    if not used:
+        findings.append(Finding(PROBLEM, "No marker is in both the probe design file and the MADC"))
+        return
+    not_in_probe = sorted(madc_markers - {row[0] for row in rows})
+    if not_in_probe:
+        findings.append(Finding(WARNING, f"{len(not_in_probe)} MADC marker(s) are not in the probe design "
+                                         f"file and will be left out: {not_in_probe[:5]}"))
+
+    names = read_chromosome_map(cfg.inputs.chromosome_map)
+    genome = read_lengths(cfg.inputs.genome)
+    chromosomes = sorted({row[3] for row in used})
+    unmatched = [name for name in chromosomes if names.get(name, name) not in genome]
+    if unmatched:
+        hint = "" if cfg.inputs.chromosome_map else " Set inputs.chromosome_map if the genome names them differently."
+        findings.append(Finding(PROBLEM, f"Chromosome(s) not in the genome: {unmatched[:5]}, while the genome has "
+                                         f"names like {list(genome)[:3]}.{hint}"))
+    else:
+        findings.append(Finding(OK, f"Genome: {len(genome)} sequences, including all {len(chromosomes)} "
+                                    "chromosomes these markers use"))
+
+    if cfg.database.flank_length < cfg.database.allele_length:
+        findings.append(Finding(WARNING, f"database.flank_length {cfg.database.flank_length} is shorter than "
+                                         f"database.allele_length {cfg.database.allele_length}, "
+                                         "so some alleles may be cut short"))
+
+
+def preflight_build_db(cfg):
+    """Everything that can be checked before starting the core database workflow."""
+    findings = []
+    _check_tools(BUILD_DB_TOOLS, findings)
+    if _check_inputs_exist(cfg, findings):
+        _check_probe_and_genome(cfg, findings)
+    _check_output_folder(cfg, findings)
+    return findings
