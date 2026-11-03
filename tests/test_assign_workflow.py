@@ -135,6 +135,15 @@ def test_a_trial_run_leaves_earlier_results_alone(dataset, tmp_path):
     assert dataset.new_alleles[MARKERS[0]]["Other"] not in database.values()
 
 
+def test_new_ids_without_sequences_stop_the_run(dataset, monkeypatch, capsys):
+    from hapapp_utils.workflows import assign as assign_workflow
+
+    monkeypatch.setattr(assign_workflow, "minted_ids_missing_from_fasta", lambda *paths: ["M|Other_0001"])
+    assert run(dataset) == EXIT_ERROR
+    assert "no sequence" in capsys.readouterr().err
+    assert manifest(dataset)["status"] == "failed"
+
+
 def test_until_stops_early(dataset, capsys):
     assert run(dataset, "--until", "filter") == EXIT_OK
     record = manifest(dataset)
