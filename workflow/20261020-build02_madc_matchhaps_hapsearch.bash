@@ -126,7 +126,7 @@ printf "\n# 2). Check if there are any duplicate alleles - same microhaplotypes 
 printf "\n  # If there are duplicates, output the duplicates and stop running the pipeline\n"
 # https://stackoverflow.com/questions/947897/how-to-comment-a-block-of-code-in-bash
 python3 "$SCRIPTS_DIR/step00_check_allele_uniqueness.py" "$REPORT_SNPID" "$FIRST_SAMPLE_COL"
-REPORT_SNPID_DUP="${REPORT%????}_snpID_dup.csv"
+REPORT_SNPID_DUP="${REPORT_SNPID%????}_dup.csv"
 if test -f "$REPORT_SNPID_DUP"; then
     printf "\n  # Check duplicated microhaplotypes\n"
     exit 0
