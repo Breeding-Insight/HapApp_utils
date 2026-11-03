@@ -87,9 +87,8 @@ def put_81bp_ref_alt_allele_seq_in_dict(refAlt_81bp):
     return(refAlt_81bp_allele_dict)
 
 def remove_duplicate_alleles_in_cutadapt_fasta(cutadapt_fasta, remove_alleles):
-    import subprocess
-    cmd = 'grep -c ">" ' + cutadapt_fasta
-    total_seq = subprocess.check_output(cmd, shell=True).strip().decode('ascii')
+    with open(cutadapt_fasta) as counted:
+        total_seq = sum(1 for line in counted if line.startswith('>'))
     inp = open(cutadapt_fasta)
     outp = open(cutadapt_fasta.replace('.fa', '_unique.fa'), 'w')
     line = inp.readline()
