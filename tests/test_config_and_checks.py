@@ -1,3 +1,5 @@
+import inspect
+
 import pytest
 import yaml
 
@@ -13,6 +15,11 @@ from hapapp_utils.checks import (
 from hapapp_utils.cli import ASSIGN_STAGES
 from hapapp_utils.config import SCHEMA, TEMPLATE, ConfigError, config_to_dict, load_config
 from hapapp_utils.madc import read_layout, read_marker_ids
+from hapapp_utils.steps.assign import (
+    step01_filter_missing_AND_ext_matchAlleles_from_madc_v1 as filter_alleles,
+    step05_parse_madc_matchAlleles_blastn as assign_ids,
+)
+from hapapp_utils.steps.hap_pa import util_haplotype_presence_absence_matrix as hap_pa
 from hapapp_utils.workflows.assign import STAGES
 
 from conftest import MARKERS, SAMPLES, make_dataset
@@ -22,7 +29,9 @@ def test_template_is_valid_and_covers_every_setting(tmp_path):
     path = tmp_path / "run.yaml"
     path.write_text(TEMPLATE)
     cfg = load_config(path)
-    assert cfg.filter.min_samples == 2
+    assert cfg.filter.min_samples == 10
+    assert cfg.filter.min_reads == 2
+    assert cfg.blast.min_coverage == 90
     assert cfg.hap_pa.min_reads == 10
     for key in SCHEMA:
         assert key.split(".")[-1] in TEMPLATE, key
@@ -60,12 +69,42 @@ def test_bad_settings_are_rejected(dataset, section, key, value, message):
         load_config(edited(dataset, section, key, value))
 
 
-def test_thresholds_have_no_default(dataset):
+def test_filter_and_blast_use_the_step_script_defaults(dataset):
     settings = dataset.settings()
-    del settings["filter"]["min_reads"]
-    del settings["blast"]["min_identity"]
+    del settings["filter"]
+    del settings["blast"]
     dataset.write_settings(settings)
-    with pytest.raises(ConfigError, match="filter.min_reads, blast.min_identity"):
+    cfg = load_config(dataset.config)
+    assert (cfg.filter.min_samples, cfg.filter.min_reads) == (10, 2)
+    assert (cfg.blast.min_coverage, cfg.blast.min_identity) == (90, 90)
+    assert cfg.blast.allele_type_truth == "report"
+    assert cfg.hap_pa.min_reads == 10
+
+
+def test_a_setting_can_replace_one_default(dataset):
+    settings = dataset.settings()
+    settings["filter"] = {"min_reads": 30}
+    dataset.write_settings(settings)
+    cfg = load_config(dataset.config)
+    assert (cfg.filter.min_samples, cfg.filter.min_reads) == (10, 30)
+
+
+def test_defaults_match_the_step_scripts_themselves():
+    filter_source = inspect.getsource(filter_alleles.main)
+    assert "'--min_samples', type=int, default=10" in filter_source
+    assert "'--min_reads', type=int, default=2" in filter_source
+    blast_source = inspect.getsource(assign_ids.main)
+    assert "'--cov_threshold', type=float, default=90.0" in blast_source
+    assert "'--iden_threshold', type=float, default=90.0" in blast_source
+    assert "default='report'" in blast_source
+    assert "'--read_threshold', type=int, default=10" in inspect.getsource(hap_pa.main)
+
+
+def test_required_settings_are_still_required(dataset):
+    settings = dataset.settings()
+    del settings["panel"]
+    dataset.write_settings(settings)
+    with pytest.raises(ConfigError, match="panel.design_length, panel.sequencing_length"):
         load_config(dataset.config)
 
 
@@ -168,7 +207,7 @@ def test_preflight_warns_about_dup_tags_that_match_nothing(dataset):
     assert WARNING in levels and "old_style_marker_name" in messages
 
 
-def test_preflight_warns_when_the_five_percent_rule_lowers_min_samples(dataset):
+def test_preflight_notes_when_the_five_percent_rule_lowers_min_samples(dataset):
     settings = dataset.settings()
     settings["filter"]["min_samples"] = 10
     dataset.write_settings(settings)

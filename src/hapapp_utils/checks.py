@@ -105,8 +105,8 @@ def _check_madc(cfg, findings):
         findings.append(Finding(WARNING, f"Repeated sample names will get a numeric suffix: {repeated[:5]}"))
     effective = min(cfg.filter.min_samples, math.ceil(n_samples * 0.05))
     if effective < cfg.filter.min_samples:
-        findings.append(Finding(WARNING, f"filter.min_samples is {cfg.filter.min_samples}, but the 5% rule "
-                                         f"lowers it to {effective} for {n_samples} samples"))
+        findings.append(Finding(OK, f"filter.min_samples is {cfg.filter.min_samples}, and the 5% rule "
+                                    f"lowers it to {effective} for {n_samples} samples"))
     return layout
 
 

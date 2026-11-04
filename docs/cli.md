@@ -75,10 +75,10 @@ The chromosome names in the probe file must match the genome. If they don't, eit
 | `panel.first_sample_column` | `FIRST_SAMPLE_COL` | no | read from the MADC header |
 | `panel.insert_size_column` | `LUT_INSERT_SIZE_COL` | no | none |
 | `panel.adapter` | written in the cutadapt command | no | `ACCGATCTG` |
-| `filter.min_samples` | `MIN_SAMPLES` | yes | |
-| `filter.min_reads` | `MIN_READS` | yes | |
-| `blast.min_coverage` | `COV` | yes | |
-| `blast.min_identity` | `IDEN` | yes | |
+| `filter.min_samples` | `MIN_SAMPLES` | no | 10 |
+| `filter.min_reads` | `MIN_READS` | no | 2 |
+| `blast.min_coverage` | `COV` | no | 90 |
+| `blast.min_identity` | `IDEN` | no | 90 |
 | `blast.allele_type_truth` | `ALLELE_TYPE` | no | `report` |
 | `blast.threads` | written in the blastn command | no | 6 |
 | `hap_pa.min_reads` | `MIN_READS_FOR_PRESENCE` | no | 10 |
@@ -86,7 +86,9 @@ The chromosome names in the probe file must match the genome. If they don't, eit
 | `output.dir` | none | yes | |
 | `output.code_version` | `CODE_VER` | no | `v2`, the package's major version |
 
-`filter.min_samples` is lowered to 5% of the samples, rounded up, if that is smaller. `check` warns when this happens.
+`filter.min_samples` is lowered to 5% of the samples, rounded up, if that is smaller. `check` reports when this happens.
+
+The filter and BLAST defaults are those of the `step01` and `step05` scripts, and the filter's also match the README. The values at the top of the build02 workflow are different (1 sample, 10 reads, 80% coverage, 80% identity), because that block is edited for each project.
 
 ## What a run writes
 

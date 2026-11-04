@@ -11,8 +11,8 @@ from . import __version__
 
 REQUIRED = object()
 
-# Every setting: dotted key -> (kind, default). Thresholds that decide which alleles get a
-# permanent ID have no default, so a run never depends on a value nobody chose.
+# Every setting: dotted key -> (kind, default). The filter and BLAST defaults are those of the step
+# scripts (step01 and step05), and the filter's also match the README.
 SCHEMA = {
     "project_id": ("str", REQUIRED),
     "inputs.madc": ("path", REQUIRED),
@@ -26,10 +26,10 @@ SCHEMA = {
     "panel.first_sample_column": ("int", None),
     "panel.insert_size_column": ("str", None),
     "panel.adapter": ("str", "ACCGATCTG"),
-    "filter.min_samples": ("int", REQUIRED),
-    "filter.min_reads": ("int", REQUIRED),
-    "blast.min_coverage": ("float", REQUIRED),
-    "blast.min_identity": ("float", REQUIRED),
+    "filter.min_samples": ("int", 10),
+    "filter.min_reads": ("int", 2),
+    "blast.min_coverage": ("float", 90.0),
+    "blast.min_identity": ("float", 90.0),
     "blast.allele_type_truth": ("str", "report"),
     "blast.threads": ("int", 6),
     "hap_pa.min_reads": ("int", 10),
@@ -76,12 +76,12 @@ panel:
 filter:
   # Keep an allele if this many samples each have at least min_reads reads.
   # min_samples is lowered to 5% of the samples (rounded up) if that is smaller.
-  min_samples: 2
-  min_reads: 10
+  # min_samples: 10
+  # min_reads: 2
 
 blast:
-  min_coverage: 80
-  min_identity: 85
+  # min_coverage: 90
+  # min_identity: 90
   # allele_type_truth: report              # report or db, when the two disagree on allele class
   # threads: 6
 

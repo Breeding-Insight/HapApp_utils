@@ -109,6 +109,18 @@ def test_step_output_goes_to_the_log_unless_verbose(tmp_path, capsys):
     assert "[INFO] Analyze BLAST results" in capsys.readouterr().out
 
 
+def test_filter_defaults_apply_when_settings_leave_them_out(dataset):
+    settings = dataset.settings()
+    del settings["filter"]
+    del settings["blast"]
+    dataset.write_settings(settings)
+    assert run(dataset) == EXIT_OK
+    assert_expected_alleles(final_report(dataset))
+    text = (dataset.outdir / "resolved_config.yaml").read_text()
+    assert "min_samples: 10" in text and "min_reads: 2" in text
+    assert "min_coverage: 90.0" in text and "min_identity: 90.0" in text
+
+
 def test_three_column_madc_keeps_every_sample(tmp_path):
     # step05 used to skip 16 columns regardless, losing the first 13 samples of a file like this
     data = make_dataset(tmp_path / "data", raw_format=False)
