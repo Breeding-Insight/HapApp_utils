@@ -22,6 +22,7 @@ folder. If the error came later, the output folder holds a partial run and a pro
 | `is not installed or not on PATH` | A program is missing | Follow [Installation](../getting-started/installation.md) |
 | `not found` or `is a folder, not a file` | Wrong path to an input | Check the path in the settings |
 | `is not a text file` | The input is Excel, gzipped or another binary format | Export it as CSV, or decompress it |
+| `filter.min_samples is ..., but the MADC has ... samples` | You asked for more samples than the MADC holds, so no allele could pass | Lower `filter.min_samples`, or leave it out to use the default |
 | `no header row starting with AlleleID` | The file is not a MADC | Check `inputs.madc` |
 | `are summary columns, not samples` | `panel.first_sample_column` points into the summary columns | Remove the setting. The tool finds the column itself |
 | `None of the MADC's markers are in the lookup table` | The first column does not hold the MADC's marker names | Use the lookup table for this panel |

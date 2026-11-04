@@ -25,11 +25,13 @@ The filter runs first, and decides which alleles go on to BLAST. It keeps an all
 enough reads of it:
 
 ```text
-samples with at least filter.min_reads reads >= min(filter.min_samples, 5% of samples, rounded up)
+samples with at least filter.min_reads reads >= filter.min_samples
 ```
 
-With the defaults and 94 samples, an allele needs at least 5 samples with at least 2 reads each. The tool
-counts only sample columns, never the MADC's summary columns. Ref and Alt alleles always pass.
+The tool uses a `filter.min_samples` you set as written. If you leave it out, the tool uses 10 samples, or 5% of the
+samples (rounded up) if that is smaller. So with 94 samples, the defaults need at least 5 samples with at least 2 reads
+each, while `filter.min_samples: 10` needs 10 samples. The tool counts only sample columns, never the MADC's summary
+columns. Ref and Alt alleles always pass.
 
 ## Adapter trimming
 

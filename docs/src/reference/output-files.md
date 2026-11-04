@@ -90,6 +90,7 @@ This file records each run. Its `counts` section holds the numbers the run print
   "outputs": {"report": "report/...", "allele_db": "versions/..."},
   "counts": {
     "alleles_tested": 77491,
+    "filter_samples_required": 2,
     "alleles_kept_by_filter": 9438,
     "alleles_existing": 708,
     "alleles_new": 8129,

@@ -27,7 +27,7 @@ SCHEMA = {
     "panel.first_sample_column": ("int", None),
     "panel.insert_size_column": ("str", None),
     "panel.adapter": ("str", "ACCGATCTG"),
-    "filter.min_samples": ("int", 10),
+    "filter.min_samples": ("int", None),
     "filter.min_reads": ("int", 2),
     "blast.min_coverage": ("float", 90.0),
     "blast.min_identity": ("float", 90.0),
@@ -75,8 +75,9 @@ panel:
   # adapter: ACCGATCTG
 
 filter:
-  # Keep an allele if this many samples each have at least min_reads reads.
-  # The tool lowers min_samples to 5% of the samples (rounded up) if that is smaller.
+  # Keep an allele if at least min_samples samples each have at least min_reads reads.
+  # Without min_samples, the tool uses 10 samples, or 5% of the samples (rounded up) if that is smaller.
+  # The tool uses a min_samples you set as written.
   # min_samples: 10
   # min_reads: 2
 

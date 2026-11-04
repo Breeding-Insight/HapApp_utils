@@ -34,6 +34,8 @@ These fixes also apply to the bash workflows.
 
 - The `Code_version` column and report file name now say `v2`.
 - `FIRST_SAMPLE_COL` now reaches `step01` and `step05`.
+- A `min_samples` you set is now the rule. The 5% rule only applies when you leave it out. The bash workflows always
+  pass `MIN_SAMPLES`, so they use it as written too.
 
 ### Added to the repository
 

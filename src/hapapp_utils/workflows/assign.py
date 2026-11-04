@@ -9,7 +9,6 @@ from __future__ import annotations
 
 import contextlib
 import glob
-import math
 import os
 import re
 import shutil
@@ -95,7 +94,8 @@ class _AssignRun:
             f"# Sequencing length: {cfg.panel.sequencing_length}",
             f"# Insert size column: {cfg.panel.insert_size_column or 'none'}",
             f"# Adapter: {cfg.panel.adapter}",
-            f"# Read filter: at least {cfg.filter.min_samples} samples with at least {cfg.filter.min_reads} reads",
+            f"# Read filter: {self.filter_rule()}"
+            + ("" if cfg.filter.min_samples is not None else " (default: 10 samples, or 5% of samples if smaller)"),
             f"# BLAST filtering thresholds: {cfg.blast.min_coverage}% coverage, {cfg.blast.min_identity}% identity",
             f"# Allele type ground truth: {cfg.blast.allele_type_truth}",
             f"# Reads for presence: {cfg.hap_pa.min_reads}",
@@ -133,11 +133,20 @@ class _AssignRun:
         kept = f"{after} of {before} markers kept" if after != before else f"{after} markers"
         return f"{kept}, no duplicate alleles"
 
+    def filter_rule(self):
+        """The rule the read filter applies in this run, in words."""
+        samples = filter_alleles.required_samples(self.cfg.filter.min_samples, self.n_samples)
+        reads = self.cfg.filter.min_reads
+        return (f"at least {samples} sample{'' if samples == 1 else 's'} "
+                f"with at least {reads} read{'' if reads == 1 else 's'}")
+
     def stage_filter(self):
         cfg = self.cfg
+        # Without a chosen min_samples, the step applies its default rule
+        chosen_samples = [] if cfg.filter.min_samples is None else ["--min_samples", str(cfg.filter.min_samples)]
         call_step(filter_alleles, [
             self.snpid, "--lut", self.lut,
-            "--min_samples", str(cfg.filter.min_samples),
+            *chosen_samples,
             "--min_reads", str(cfg.filter.min_reads),
             "--first_sample_col", self.first_sample_col,
             "--split_by_colID", cfg.panel.insert_size_column or "",
@@ -148,12 +157,12 @@ class _AssignRun:
         pieces = glob.glob(f"{self.base}_match_*.fa") if cfg.panel.insert_size_column else [self.blast_query]
         kept = sum(count_records(piece) for piece in pieces)
         tested = count_match_rows(self.snpid)
-        samples = min(cfg.filter.min_samples, math.ceil(self.n_samples * 0.05))
-        rule = f"at least {samples} samples with at least {cfg.filter.min_reads} reads"
+        rule = self.filter_rule()
         if kept == 0:
             raise PipelineError(f"No allele passed the read filter of {rule}. "
                                 "Lower filter.min_samples or filter.min_reads.")
         self.summary["alleles_tested"], self.summary["alleles_kept_by_filter"] = tested, kept
+        self.summary["filter_samples_required"] = filter_alleles.required_samples(cfg.filter.min_samples, self.n_samples)
         return f"{kept} of {tested} alleles kept ({rule})"
 
     def _cutadapt(self, in_fasta, out_fasta):

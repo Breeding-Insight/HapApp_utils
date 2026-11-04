@@ -42,6 +42,35 @@ def test_filter_ignores_madc_summary_columns(dataset):
         assert dataset.new_alleles[marker]["Other"] in kept
 
 
+@pytest.mark.parametrize("min_samples,n_samples,needed", [
+    (None, 94, 5), (None, 400, 10), (None, 10, 1), (2, 94, 2), (10, 94, 10), (20, 94, 20),
+])
+def test_five_percent_rule_only_applies_without_a_chosen_min_samples(min_samples, n_samples, needed):
+    assert filter_alleles.required_samples(min_samples, n_samples) == needed
+
+
+def test_filter_uses_a_chosen_min_samples_as_written(dataset):
+    # 5% of the 40 samples is 2. Lowering this setting to 2 would keep the AltMatch alleles, which have 3 samples.
+    filter_alleles.main([str(dataset.madc), "--min_samples", "4", "--min_reads", "10", "--split_by_colID", ""])
+    kept = fasta_sequences(str(dataset.madc).replace(".csv", "_match.fa"))
+    for marker in MARKERS:
+        assert dataset.new_alleles[marker]["Other"] in kept
+        assert dataset.new_alleles[marker]["AltMatch"] not in kept
+    log = open(str(dataset.madc).replace(".csv", "_match.log")).read()
+    assert "Retain an allele with at least 4 samples, each having >= 10 reads" in log
+    assert "whichever is smaller" not in log
+
+
+def test_filter_uses_the_default_rule_without_min_samples(dataset):
+    filter_alleles.main([str(dataset.madc), "--min_reads", "10", "--split_by_colID", ""])
+    kept = fasta_sequences(str(dataset.madc).replace(".csv", "_match.fa"))
+    for marker in MARKERS:
+        assert dataset.new_alleles[marker]["AltMatch"] in kept
+        assert dataset.noise[marker] not in kept
+    log = open(str(dataset.madc).replace(".csv", "_match.log")).read()
+    assert "whichever is smaller" in log and "At least 5% samples (2)" in log
+
+
 def test_filter_keeps_summary_columns_in_temporary_report(dataset):
     # step05 removes these columns itself, using its read_col setting
     filter_alleles.main([str(dataset.madc), "--min_samples", "2", "--min_reads", "10", "--split_by_colID", ""])

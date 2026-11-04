@@ -39,6 +39,7 @@ FIRST_SAMPLE_COL=17
 LUT_INSERT_SIZE_COL=""
 
 # Initial filter of microhaplotypes with missing data
+# step01 uses MIN_SAMPLES as written. Its 5% rule only applies if it runs without --min_samples
 MIN_SAMPLES=1
 MIN_READS=10
 

@@ -11,14 +11,27 @@
 Extract RefMatch and AltMatch microhap alleles into a FASTA file
 and assign temporary names in the report.
 
-Retention criteria (whichever is smaller):
-    - At least 10 samples, each having >= 2 reads
-    - At least 5% of samples, each having >= 2 reads
+Retention criteria:
+    - With --min_samples: at least that many samples, each having >= min_reads reads
+    - Without it, whichever is smaller:
+        - At least 10 samples, each having >= min_reads reads
+        - At least 5% of samples, each having >= min_reads reads
+min_reads is 2 unless --min_reads sets it.
 """
 
 import argparse
 import datetime
 import math
+
+DEFAULT_MIN_SAMPLES = 10
+
+
+def required_samples(min_samples, n_samples):
+    """How many samples an allele must pass in. A chosen min_samples is the rule; the 5% rule only applies without one."""
+    if min_samples is None:
+        return min(DEFAULT_MIN_SAMPLES, math.ceil(n_samples * 0.05))
+    return min_samples
+
 
 def get_split_by_info(lut, split_by_colID):
     split_by_dict = {}
@@ -128,6 +141,8 @@ def process_madc(report, min_samples, min_reads, first_sample_col=None):
         outp_log.write(f'[INFO] ## {nowf}\n')
         outp_log.write(f'[INFO] ## Processing {report}\n\n')
 
+        n_samples = 0
+        samples_needed = DEFAULT_MIN_SAMPLES if min_samples is None else min_samples
         data_col_index = None
         #### CHANGE: separate from data_col_index, which still decides the columns
         #### kept in the temporary report (step05 removes the summary columns).
@@ -155,7 +170,10 @@ def process_madc(report, min_samples, min_reads, first_sample_col=None):
                     data_col_index = 3
                 if sample_col_index is None:
                     sample_col_index = data_col_index
-                min_samples = min(min_samples, math.ceil(len(line_array[sample_col_index:]) * 0.05))
+                #### CHANGE: a min_samples the user chose is the rule. Lowering it to 5% of
+                #### the samples now only happens when min_samples is left out.
+                n_samples = len(line_array[sample_col_index:])
+                samples_needed = required_samples(min_samples, n_samples)
 
                 # Check duplicate sample names in header
                 check_dup_set = set([x for x in line_array[data_col_index:]
@@ -182,24 +200,33 @@ def process_madc(report, min_samples, min_reads, first_sample_col=None):
             else:
                 # Regular allele data rows
                 return_list, return_fasta, miss_count, retained_count, alleles, allele_ID = \
-                    extract_RefMatch_AltMatch(data_col_index, sample_col_index, miss_count, retained_count, alleles, min_samples, min_reads, line_array)
+                    extract_RefMatch_AltMatch(data_col_index, sample_col_index, miss_count, retained_count, alleles, samples_needed, min_reads, line_array)
                 if return_list != 'False':
                     outp_report.write(','.join(return_list) + '\n')
                 if return_fasta != 'False':
                     match_fasta[allele_ID] = return_fasta
 
         # Summary
+        if min_samples is None:
+            rule = "Retain an allele based on whichever is smaller below:"
+            options = [f"At least {DEFAULT_MIN_SAMPLES} samples, each having >= {min_reads} reads",
+                       f"At least 5% samples ({math.ceil(n_samples * 0.05)}), each having >= {min_reads} reads"]
+        else:
+            plural = "" if min_samples == 1 else "s"
+            rule = f"Retain an allele with at least {min_samples} sample{plural}, each having >= {min_reads} reads"
+            options = []
+
         print(f"\n[INFO] Extract RefMatch, AltMatch, and Other alleles for determining allele identity and assigning IDs")
-        print(f"[INFO] Retain an allele based on whichever is smaller below:")
-        print(f"[INFO]   * At least {min_samples} samples, each having >= {min_reads} reads")
-        print(f"[INFO]   * At least 5% samples, each having >= {min_reads} reads")
+        print(f"[INFO] {rule}")
+        for option in options:
+            print(f"[INFO]   * {option}")
         print(f"[INFO] Number of non-Ref/Alt allele DISCARDED: {miss_count}")
         print(f"[INFO] Number of non-Ref/Alt allele RETAINED: {retained_count}\n")
 
         outp_log.write("# Extract RefMatch, AltMatch, and Other alleles for determining allele identity and assigning IDs\n")
-        outp_log.write("    # Retain an allele based on whichever is smaller below:\n")
-        outp_log.write(f"      * At least {min_samples} samples, each having >= {min_reads} reads\n")
-        outp_log.write(f"      * At least 5% samples, each having >= {min_reads} reads\n")
+        outp_log.write(f"    # {rule}\n")
+        for option in options:
+            outp_log.write(f"      * {option}\n")
         outp_log.write(f"      * Number of non-Ref/Alt alleles DISCARDED: {miss_count}\n")
         outp_log.write(f"      * Number of non-Ref/Alt alleles RETAINED: {retained_count}\n")
         return match_fasta
@@ -210,7 +237,9 @@ def main(argv=None):
         description="Extract RefMatch and AltMatch microhaps into a FASTA file and assign temp names for them in the report")
     parser.add_argument('report', help='MADC report CSV file')
     parser.add_argument('--lut', help='Marker ID lookup table', default=None)
-    parser.add_argument('--min_samples', type=int, default=10, help='Minimum number of samples with minimum reads to retain an allele')
+    parser.add_argument('--min_samples', type=int, default=None,
+                        help='Minimum number of samples with minimum reads to retain an allele. '
+                             f'If omitted, the smaller of {DEFAULT_MIN_SAMPLES} and 5%% of samples.')
     parser.add_argument('--min_reads', type=int, default=2, help='Minimum number of reads to retain an allele')
     parser.add_argument('--first_sample_col', type=int, default=None,
                         help='Column number of the first sample (1-based). If omitted, it is taken from the leading * rows.')

@@ -204,7 +204,7 @@ def test_filter_defaults_apply_when_settings_leave_them_out(dataset):
     assert run(dataset) == EXIT_OK
     assert_expected_alleles(final_report(dataset))
     text = (dataset.outdir / "resolved_config.yaml").read_text()
-    assert "min_samples: 10" in text and "min_reads: 2" in text
+    assert "min_samples: null" in text and "min_reads: 2" in text
     assert "min_coverage: 90.0" in text and "min_identity: 90.0" in text
 
 
@@ -313,6 +313,38 @@ def test_unexpected_errors_are_summarized_unless_debugging(dataset, monkeypatch,
     for command in (["--debug", "assign", "-c", str(dataset.config)], ["assign", "-c", str(dataset.config), "--debug"]):
         with pytest.raises(RuntimeError):
             main(command)
+
+
+def run_filter_only(dataset, folder, *extra):
+    assert run(dataset, "--until", "filter", "-o", str(folder), *extra) == EXIT_OK
+    record = json.loads((folder / "run_manifest.json").read_text())
+    return record, (folder / record["process_readme"]).read_text()
+
+
+def test_run_records_a_chosen_min_samples_as_the_rule(dataset, tmp_path, capsys):
+    # 5% of the 40 samples is 2, which must not lower this setting
+    record, readme = run_filter_only(dataset, tmp_path / "four", "--set", "filter.min_samples=4")
+    assert record["counts"]["filter_samples_required"] == 4
+    assert "# Read filter: at least 4 samples with at least 10 reads\n" in readme
+    assert "Retain an allele with at least 4 samples, each having >= 10 reads" in readme
+    assert "5%" not in readme
+    assert "at least 4 samples with at least 10 reads" in capsys.readouterr().out
+
+
+def test_run_records_the_default_rule_when_min_samples_is_left_out(dataset, tmp_path):
+    settings = dataset.settings()
+    del settings["filter"]["min_samples"]
+    dataset.write_settings(settings)
+    record, readme = run_filter_only(dataset, tmp_path / "default")
+    assert record["counts"]["filter_samples_required"] == 2
+    assert "# Read filter: at least 2 samples with at least 10 reads (default: 10 samples, or 5% of samples" in readme
+    assert "At least 10 samples, each having >= 10 reads" in readme
+    assert "At least 5% samples (2), each having >= 10 reads" in readme
+
+
+def test_rule_in_words_handles_one_sample_and_one_read(dataset, tmp_path):
+    _, readme = run_filter_only(dataset, tmp_path / "one", "--set", "filter.min_samples=1", "--set", "filter.min_reads=1")
+    assert "# Read filter: at least 1 sample with at least 1 read\n" in readme
 
 
 def test_a_used_output_folder_is_refused(dataset, capsys):

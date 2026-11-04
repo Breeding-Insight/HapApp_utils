@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import math
 import os
 import re
 from collections import Counter
@@ -11,6 +10,7 @@ from dataclasses import dataclass
 from .fasta import read_lengths
 from .madc import longest_ref_read, read_layout, read_marker_ids
 from .probe_design import probe_row_problem, read_probe_rows
+from .steps.assign import step01_filter_missing_AND_ext_matchAlleles_from_madc_v1 as filter_alleles
 from .tools import BUILD_DB_TOOLS, required_tools, tool_version
 
 OK, WARNING, PROBLEM = "ok", "warning", "problem"
@@ -126,10 +126,13 @@ def _check_madc(cfg, findings):
     repeated = sorted(name for name, count in Counter(layout.samples).items() if count > 1)
     if repeated:
         findings.append(Finding(WARNING, f"Repeated sample names will get a numeric suffix: {repeated[:5]}"))
-    effective = min(cfg.filter.min_samples, math.ceil(n_samples * 0.05))
-    if effective < cfg.filter.min_samples:
-        findings.append(Finding(OK, f"filter.min_samples is {cfg.filter.min_samples}, and the 5% rule "
-                                    f"lowers it to {effective} for {n_samples} samples"))
+    if cfg.filter.min_samples is None:
+        required = filter_alleles.required_samples(None, n_samples)
+        findings.append(Finding(OK, f"filter.min_samples is not set, so the filter uses {required} samples: the smaller "
+                                    f"of {filter_alleles.DEFAULT_MIN_SAMPLES} and 5% of {n_samples} samples"))
+    elif cfg.filter.min_samples > n_samples:
+        findings.append(Finding(PROBLEM, f"filter.min_samples is {cfg.filter.min_samples}, but the MADC has "
+                                         f"{n_samples} samples, so no allele could pass"))
     return layout
 
 

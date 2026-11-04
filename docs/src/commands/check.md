@@ -25,6 +25,7 @@ Each line reports `ok`, `WARNING` or `PROBLEM`. A warning lets the run go ahead.
 | The output folder is new or empty, and you can write to it | both |
 | `panel.first_sample_column` fits the header | `assign` |
 | `panel.sequencing_length` matches the MADC's Ref alleles | `assign` |
+| `filter.min_samples` is no larger than the number of samples | `assign` |
 | The lookup table has the MADC's markers | `assign` |
 | The database has `Ref_0001` and `Alt_0002` alleles for those markers | `assign` |
 | The count table agrees with the database | `assign` |

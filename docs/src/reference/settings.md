@@ -48,7 +48,7 @@ The Bash variable column names the matching variable in the `build02` bash workf
 
 | Setting | Required | Default | Bash variable | Description |
 |---------|----------|---------|---------------|-------------|
-| `filter.min_samples` | no | 10 | `MIN_SAMPLES` | Samples that must reach `min_reads`. The tool uses 5% of the samples, rounded up, if that is smaller |
+| `filter.min_samples` | no | 10, or 5% of samples if smaller | `MIN_SAMPLES` | Samples that must reach `min_reads`. The tool uses a value you set as written |
 | `filter.min_reads` | no | 2 | `MIN_READS` | Reads a sample needs to count |
 
 ### BLAST

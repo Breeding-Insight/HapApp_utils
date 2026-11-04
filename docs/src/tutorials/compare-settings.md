@@ -30,7 +30,8 @@ samples.
 | 2 samples, 10 reads | 80 / 85 | 9,438 | 8,129 | 601 | 24,529 |
 | 1 sample, 30 reads | 80 / 85 | 8,889 | 7,766 | 414 | 24,166 |
 
-The default of 10 samples becomes 5 here, because the filter uses 5% of the samples when that is smaller.
+The default uses 5 samples here instead of 10, because it takes 5% of the samples when that is smaller. The tool
+uses a `filter.min_samples` you set as written.
 
 ## What each threshold trades off
 
