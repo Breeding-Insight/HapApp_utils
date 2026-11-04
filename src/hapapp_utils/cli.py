@@ -50,10 +50,10 @@ def _build_parser():
     pa = commands.add_parser("hap-pa", help="build presence/absence tables from a report with fixed allele IDs")
     pa.add_argument("--madc", required=True, help="report with fixed allele IDs")
     pa.add_argument("--descriptor", required=True, help="column name for this project in the matrix")
-    pa.add_argument("--read-threshold", type=int, default=10, help="reads needed to count as present (default: 10)")
+    pa.add_argument("--min-reads", type=int, default=10, help="reads needed to count as present (default: 10)")
 
     merge = commands.add_parser("merge-pa", help="merge presence/absence matrices from several projects")
-    merge.add_argument("reports", nargs="+", help="matrices to merge")
+    merge.add_argument("matrices", nargs="+", metavar="MATRIX", help="matrices to merge")
     merge.add_argument("-o", "--output", required=True, help="merged matrix to write")
     return parser
 
@@ -152,14 +152,14 @@ def _cmd_assign(args):
 def _cmd_hap_pa(args):
     from .steps.hap_pa import util_haplotype_presence_absence_matrix as hap_pa
 
-    hap_pa.main(["--madc", args.madc, "--descriptor", args.descriptor, "--read_threshold", str(args.read_threshold)])
+    hap_pa.main(["--madc", args.madc, "--descriptor", args.descriptor, "--read_threshold", str(args.min_reads)])
     return EXIT_OK
 
 
 def _cmd_merge_pa(args):
     from .steps.hap_pa import util_hapDB_merge_presence_absence_PIhaps as merge_pa
 
-    merge_pa.concat_madc(args.reports, args.output)
+    merge_pa.concat_madc(args.matrices, args.output)
     return EXIT_OK
 
 

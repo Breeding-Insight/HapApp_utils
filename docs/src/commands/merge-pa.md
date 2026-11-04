@@ -5,7 +5,7 @@ Merge presence/absence matrices from several projects.
 ## Synopsis
 
 ```bash
-hapapp-utils merge-pa <REPORT> [<REPORT> ...] -o <FILE>
+hapapp-utils merge-pa <MATRIX> [<MATRIX> ...] -o <FILE>
 ```
 
 ## Description
@@ -26,7 +26,7 @@ You can merge an earlier merged matrix again. The tool recounts `Presence_count`
 
 | Argument | Description |
 |----------|-------------|
-| `reports` | The matrices to merge |
+| `matrices` | The `_hapPA.csv` files or earlier merged matrices to merge |
 | `-o`, `--output` | The merged matrix to write (required) |
 
 ## Example

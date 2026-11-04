@@ -534,7 +534,7 @@ def test_hap_pa_and_merge_pa_commands(dataset, tmp_path):
     report = tmp_path / "report.csv"
     frame = final_report(dataset).drop(columns="Code_version")
     frame.to_csv(report, index=False)
-    assert main(["hap-pa", "--madc", str(report), "--descriptor", "A", "--read-threshold", "20"]) == EXIT_OK
+    assert main(["hap-pa", "--madc", str(report), "--descriptor", "A", "--min-reads", "20"]) == EXIT_OK
     first = tmp_path / "report_hapPA.csv"
     assert pd.read_csv(first).columns.tolist() == ["AlleleID", "A"]
     second = tmp_path / "other.csv"
