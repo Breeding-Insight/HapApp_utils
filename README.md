@@ -2,7 +2,7 @@
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](https://github.com/Breeding-Insight/HapApp_utils/blob/master/LICENSE)
 [![Tests](https://github.com/Breeding-Insight/HapApp_utils/actions/workflows/tests.yml/badge.svg)](https://github.com/Breeding-Insight/HapApp_utils/actions/workflows/tests.yml)
-[![Documentation](https://img.shields.io/badge/docs-readthedocs-blue.svg)](https://hapapp-utils.readthedocs.io)
+[![Documentation](https://img.shields.io/badge/docs-readthedocs-blue.svg)](https://hapapp.readthedocs.io)
 
 **Fixed microhaplotype IDs and versioned allele databases for targeted genotyping panels.**
 
@@ -95,13 +95,13 @@ hapapp-utils assign -c run.yaml --set filter.min_samples=2 --set filter.min_read
 
 ## Documentation
 
-The full documentation is at [hapapp-utils.readthedocs.io](https://hapapp-utils.readthedocs.io):
+The full documentation is at [hapapp.readthedocs.io](https://hapapp.readthedocs.io):
 
-- [Getting Started](https://hapapp-utils.readthedocs.io/en/latest/getting-started/installation.html): installation, first runs and input files
-- [Tutorials](https://hapapp-utils.readthedocs.io/en/latest/tutorials/core-database.html): build a database, assign alleles and compare settings
-- [Command Reference](https://hapapp-utils.readthedocs.io/en/latest/commands/overview.html): every command and option
-- [Settings](https://hapapp-utils.readthedocs.io/en/latest/reference/settings.html): every setting and its default
-- [How Allele IDs Work](https://hapapp-utils.readthedocs.io/en/latest/reference/how-ids-work.html): how the filter and BLAST decide each allele's ID
+- [Getting Started](https://hapapp.readthedocs.io/en/latest/getting-started/installation.html): installation, first runs and input files
+- [Tutorials](https://hapapp.readthedocs.io/en/latest/tutorials/core-database.html): build a database, assign alleles and compare settings
+- [Command Reference](https://hapapp.readthedocs.io/en/latest/commands/overview.html): every command and option
+- [Settings](https://hapapp.readthedocs.io/en/latest/reference/settings.html): every setting and its default
+- [How Allele IDs Work](https://hapapp.readthedocs.io/en/latest/reference/how-ids-work.html): how the filter and BLAST decide each allele's ID
 
 ## Commands
 
@@ -160,7 +160,7 @@ pip install -e ".[test]"
 pytest
 ```
 
-See [Contributing](https://hapapp-utils.readthedocs.io/en/latest/development/contributing.html) for
+See [Contributing](https://hapapp.readthedocs.io/en/latest/development/contributing.html) for
 the code layout and the documentation build.
 
 ## Citation

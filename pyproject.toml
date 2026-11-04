@@ -20,7 +20,7 @@ dependencies = [
 
 [project.urls]
 Homepage = "https://github.com/Breeding-Insight/HapApp_utils"
-Documentation = "https://hapapp-utils.readthedocs.io"
+Documentation = "https://hapapp.readthedocs.io"
 Issues = "https://github.com/Breeding-Insight/HapApp_utils/issues"
 
 [project.optional-dependencies]
