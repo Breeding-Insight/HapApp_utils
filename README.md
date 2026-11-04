@@ -138,21 +138,6 @@ The full documentation is at [hapapp.readthedocs.io](https://hapapp.readthedocs.
 | `hapSearch/sample_hapStatus/*_hapStatus.csv` | Which samples contain each allele |
 | `run_manifest.json` | Status, counts, warnings, tool versions and input checksums |
 
-## Validation
-
-We checked this tool on a DArTag panel with 3,000 markers and 94 samples:
-
-| Check | Result |
-|-------|--------|
-| `build-db` against the panel's existing database | All 5,998 Ref and Alt alleles match, ignoring letter case, with the same 2,999 markers |
-| `build-db` duplicate detection | Finds the one marker the panel had already excluded, `Chr06_021528607` |
-| `build-db` against the `build01` bash workflow | Same alleles |
-| Reads shortened to 81 bp, alleles of 109 bp | All 4,128 alleles match the `esl-sfetch` result and the full-length reads |
-| `assign` against the `build02` bash workflow | 11 output files match byte for byte, with the same code version and step fixes |
-| Two runs of `build-db` | Byte-identical database and count table |
-
-This panel holds only SNPs, so indels have only run on synthetic data in the test suite.
-
 ## Development
 
 ```bash

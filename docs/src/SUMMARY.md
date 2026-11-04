@@ -31,7 +31,6 @@
 - [Output Files](reference/output-files.md)
 - [How Allele IDs Work](reference/how-ids-work.md)
 - [Warnings and Errors](reference/messages.md)
-- [Validation](reference/validation.md)
 - [FAQ](reference/faq.md)
 
 # Development
