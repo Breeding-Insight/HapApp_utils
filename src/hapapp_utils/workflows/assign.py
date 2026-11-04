@@ -9,13 +9,16 @@ from __future__ import annotations
 
 import contextlib
 import glob
+import math
 import os
 import re
 import shutil
 from pathlib import Path
 
-from ..checks import PROBLEM, minted_ids_missing_from_fasta, preflight, read_fasta_ids
+from ..checks import PROBLEM, WARNING, minted_ids_missing_from_fasta, preflight, read_fasta_ids
 from ..config import SCHEMA
+from ..fasta import count_records, iter_fasta
+from ..madc import count_match_rows, read_marker_ids
 from ..steps.assign import (
     step00_check_allele_uniqueness as check_unique,
     step00_madc_update_snpID_v1_1 as update_ids,
@@ -73,6 +76,8 @@ class _AssignRun:
         self.final_counts = self.counts
         self.hap_pa_matrix = None
         self.hap_status = None
+        self.warnings = []
+        self.summary = {}
 
     def readme_header(self):
         cfg = self.cfg
@@ -123,6 +128,10 @@ class _AssignRun:
         if os.path.exists(duplicates):
             raise DuplicateAllelesFound(
                 f"The MADC has the same sequence under different allele IDs. Review {duplicates} in the run folder.")
+        before, after = len(read_marker_ids(self.report)), len(read_marker_ids(self.snpid))
+        self.summary["markers"] = after
+        kept = f"{after} of {before} markers kept" if after != before else f"{after} markers"
+        return f"{kept}, no duplicate alleles"
 
     def stage_filter(self):
         cfg = self.cfg
@@ -136,6 +145,16 @@ class _AssignRun:
         self.ids_report = f"{self.base}_tmp_rename.csv"
         self.blast_query = f"{self.base}_match.fa"
         self.final_report = f"{self.base}_rename.csv"
+        pieces = glob.glob(f"{self.base}_match_*.fa") if cfg.panel.insert_size_column else [self.blast_query]
+        kept = sum(count_records(piece) for piece in pieces)
+        tested = count_match_rows(self.snpid)
+        samples = min(cfg.filter.min_samples, math.ceil(self.n_samples * 0.05))
+        rule = f"at least {samples} samples with at least {cfg.filter.min_reads} reads"
+        if kept == 0:
+            raise PipelineError(f"No allele passed the read filter of {rule}. "
+                                "Lower filter.min_samples or filter.min_reads.")
+        self.summary["alleles_tested"], self.summary["alleles_kept_by_filter"] = tested, kept
+        return f"{kept} of {tested} alleles kept ({rule})"
 
     def _cutadapt(self, in_fasta, out_fasta):
         panel = self.cfg.panel
@@ -176,11 +195,29 @@ class _AssignRun:
             self._trim_mixed_inserts(trimmed)
         else:
             self._cutadapt(f"{self.base}_match.fa", trimmed)
+
+        before = self.summary["alleles_kept_by_filter"]
+        lengths = [len(sequence) for _, sequence in iter_fasta(trimmed)]
+        after = len(lengths)
+        if after == 0:
+            raise PipelineError(f"Trimming left no alleles of at least {panel.design_length} bp. "
+                                "Check panel.design_length and panel.adapter.")
+        dropped = before - after
+        if dropped:
+            self.warnings.append(f"{dropped} of {before} alleles were dropped for being shorter than "
+                                 f"panel.design_length ({panel.design_length}) after trimming. "
+                                 "If that is a lot, check panel.design_length and panel.adapter.")
+        if not any(length < panel.sequencing_length for length in lengths):
+            self.warnings.append("No kept allele was shortened by trimming, so no adapter was found in them. "
+                                 "Check panel.design_length and panel.adapter.")
+
         call_step(update_trimmed, [trimmed, self.db, self.ids_report])
         self.ids_report = f"{self.base}_tmp_rename_updatedSeq.csv"
         self.blast_query = f"{self.base}_match_cutadapt_unique.fa"
         self.final_report = f"{self.base}_rename_updatedSeq.csv"
-        return None
+        merged = after - count_records(self.blast_query)
+        self.summary["alleles_dropped_by_trimming"], self.summary["alleles_merged_after_trimming"] = dropped, merged
+        return f"{after} of {before} alleles kept, {merged} merged as duplicates"
 
     def stage_blast(self):
         run_tool(["makeblastdb", "-in", self.db, "-dbtype", "nucl"])
@@ -189,6 +226,18 @@ class _AssignRun:
                   "-db", self.db, "-query", self.blast_query, "-out", self.blast_out,
                   "-evalue", "1e-5", "-num_threads", str(self.cfg.blast.threads),
                   "-max_target_seqs", "15", "-outfmt", BLAST_COLUMNS])
+        with_hit = set()
+        with open(self.blast_out) as handle:
+            for line in handle:
+                cells = line.split(None, 5)
+                if cells[0].split("|")[0] == cells[4].split("|")[0]:
+                    with_hit.add(cells[0])
+        queried = count_records(self.blast_query)
+        self.summary["alleles_blasted"] = queried
+        if not with_hit:
+            self.warnings.append("No allele had a BLAST hit at its own marker. Check that inputs.allele_db was "
+                                 "built for this panel.")
+        return f"{len(with_hit)} of {queried} alleles hit their own marker"
 
     def stage_assign_ids(self):
         cfg = self.cfg
@@ -207,6 +256,25 @@ class _AssignRun:
             raise PipelineError(f"The report has {samples} sample columns but the MADC has {self.n_samples}. "
                                 f"Its columns start {header[3:6]}, so the first sample column may be wrong.")
 
+        with open(self.final_report) as handle:
+            next(handle)
+            assigned = sum(1 for line in handle
+                           if not line.split(",", 1)[0].endswith(("|Ref_0001", "|Alt_0002")))
+        new_db = assign_ids.bump_version_tag(self.db)
+        new = len(read_fasta_ids(new_db) - read_fasta_ids(self.db)) if os.path.exists(new_db) else 0
+        existing = assigned - new
+        removed = self.summary["alleles_blasted"] - assigned
+        self.summary.update(alleles_existing=existing, alleles_new=new, alleles_removed_after_blast=removed)
+        note = f"{existing} already in the database, {new} new, {removed} removed by the BLAST thresholds or merged"
+        other_type = f"{self.db[:-3]}_mismatchedType_alleles.csv"
+        if os.path.exists(other_type):
+            with open(other_type) as handle:
+                closer = sum(1 for _ in handle) - 1
+            if closer > 0:
+                self.summary["alleles_closer_to_other_type"] = closer
+                note += f"; {closer} of the new ones are closest to the other allele type"
+        return note
+
     def stage_db_check(self):
         new_db = assign_ids.bump_version_tag(self.db)
         new_counts = assign_ids.bump_version_tag(self.counts)
@@ -215,7 +283,7 @@ class _AssignRun:
             self.readme = self.no_new_allele_readme
             self._add_code_version()
             self._tidy()
-            return "no new alleles"
+            return f"no new alleles, database stays at {len(read_fasta_ids(self.db))} sequences"
 
         missing = minted_ids_missing_from_fasta(self.counts, new_counts, new_db)
         if missing:
@@ -236,7 +304,12 @@ class _AssignRun:
                 self.madc_cleaned = without_duplicates
         self._add_code_version()
         self._tidy()
-        return None
+        note = f"{len(read_fasta_ids(self.final_db))} sequences, was {len(read_fasta_ids(self.db))}"
+        if self.final_db != new_db:
+            collapsed = len(read_fasta_ids(new_db)) - len(read_fasta_ids(self.final_db))
+            self.warnings.append(f"{collapsed} duplicate sequence(s) in the new database were collapsed, "
+                                 f"which made another version: {self.final_db}")
+        return note
 
     def _add_code_version(self):
         version = self.cfg.output.code_version
@@ -277,6 +350,9 @@ class _AssignRun:
             call_step(merge_pa, ["--reports", f"{previous},{project_matrix}", "--output", self.hap_pa_matrix])
         else:
             shutil.copyfile(project_matrix, self.hap_pa_matrix)
+        with open(project_matrix) as handle:
+            present = sum(1 for _ in handle) - 1
+        return f"{present} alleles present in at least one sample"
 
     def outputs(self):
         return {
@@ -288,7 +364,7 @@ class _AssignRun:
         }
 
     def counts_summary(self):
-        summary = {"database_before": len(read_fasta_ids(self.db))}
+        summary = {"database_before": len(read_fasta_ids(self.db)), **self.summary}
         if os.path.exists(self.final_db):
             summary["database_after"] = len(read_fasta_ids(self.final_db))
         if self.final_report and os.path.exists(self.final_report):
@@ -308,5 +384,6 @@ def run_assign(cfg, until=None, verbose=False, command=None, console=None):
     first_sample_col = cfg.panel.first_sample_column or layout.first_sample_column
     n_samples = len(layout.samples) + layout.first_sample_column - first_sample_col
     details = {"first_sample_column": first_sample_col, "samples": n_samples}
+    warnings = [finding.message for finding in findings if finding.level == WARNING]
     return run_stages(cfg, _AssignRun(cfg, first_sample_col, n_samples), STAGES, SCHEMA, required_tools(cfg), details,
-                      until=until, verbose=verbose, command=command, console=console)
+                      warnings, until=until, verbose=verbose, command=command, console=console)

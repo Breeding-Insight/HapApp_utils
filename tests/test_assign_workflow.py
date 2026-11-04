@@ -3,6 +3,7 @@
 import hashlib
 import json
 import os
+import random
 import shutil
 from pathlib import Path
 
@@ -85,8 +86,12 @@ def test_assign_end_to_end(dataset, capsys):
     record = manifest(dataset)
     assert record["status"] == "finished"
     assert record["first_sample_column"] == 17
-    assert record["counts"] == {"database_before": 9, "database_after": 18, "report_rows": 18,
-                                "report_samples": len(SAMPLES)}
+    counts = record["counts"]
+    assert (counts["database_before"], counts["database_after"]) == (9, 18)
+    assert (counts["report_rows"], counts["report_samples"]) == (18, len(SAMPLES))
+    assert (counts["alleles_tested"], counts["alleles_kept_by_filter"]) == (15, 12)
+    assert (counts["alleles_existing"], counts["alleles_new"], counts["alleles_removed_after_blast"]) == (3, 9, 0)
+    assert record["warnings"] == []
     assert record["inputs"]["madc"]["sha256"] == before[dataset.madc]
     assert "blastn" in record["tools"]
     assert (dataset.outdir / "resolved_config.yaml").exists()
@@ -97,6 +102,87 @@ def test_assign_end_to_end(dataset, capsys):
     assert set(frame["AlleleID"]) == set(matrix["AlleleID"])
     assert list(matrix.columns) == ["AlleleID", "PROJECT"]
     assert "Finished" in capsys.readouterr().out
+
+
+def test_each_stage_reports_counts_on_screen(dataset, capsys):
+    assert run(dataset) == EXIT_OK
+    out = capsys.readouterr().out
+    assert "3 markers, no duplicate alleles" in out
+    assert "12 of 15 alleles kept (at least 2 samples with at least 10 reads)" in out
+    assert "skipped: reads are not longer than the design" in out
+    assert "12 of 12 alleles hit their own marker" in out
+    assert "3 already in the database, 9 new, 0 removed by the BLAST thresholds or merged" in out
+    assert "18 sequences, was 9" in out
+    assert "alleles present in at least one sample" in out
+
+
+def test_warnings_found_before_the_run_reach_the_screen(dataset, capsys):
+    lines = dataset.lookup.read_text().splitlines(keepends=True)
+    dataset.lookup.write_text("".join(lines[1:]))
+    assert run(dataset) == EXIT_OK
+    out = capsys.readouterr().out
+    assert f"WARNING: 1 MADC marker(s) are not in the lookup table and will be dropped: ['{MARKERS[0]}']" in out
+    assert "2 of 3 markers kept, no duplicate alleles" in out
+    assert "1 warning(s), shown above" in out
+    assert any(MARKERS[0] in text for text in manifest(dataset)["warnings"])
+    readme = (dataset.outdir / manifest(dataset)["process_readme"]).read_text()
+    assert "WARNING: 1 MADC marker(s)" in readme
+
+
+def test_warnings_from_inside_a_step_reach_the_screen(dataset, capsys):
+    # step01 prints a [WARNING] line of its own about repeated sample names
+    text = dataset.madc.read_text().replace(f"{SAMPLES[1]},", f"{SAMPLES[0]},", 1)
+    dataset.madc.write_text(text)
+    assert run(dataset) == EXIT_OK
+    out = capsys.readouterr().out
+    assert "WARNING: Repeated sample names" in out
+    assert "WARNING: Remember to update these duplicate names" in out
+
+
+def test_a_filter_that_keeps_nothing_stops_the_run(dataset, capsys):
+    assert run(dataset, "--set", "filter.min_reads=100000") == EXIT_ERROR
+    assert "No allele passed the read filter" in capsys.readouterr().err
+
+
+@requires_cutadapt
+def test_trimming_that_drops_alleles_warns(tmp_path, capsys):
+    data = make_dataset(tmp_path / "data", trim_design=81)
+    # One allele has the adapter early, so it comes out shorter than the design length
+    other = data.new_alleles[MARKERS[0]]["Other"]
+    text = data.madc.read_text()
+    assert text.count(other) == 2
+    start = text.index(other)
+    read = text[start:start + 109]
+    early = read[:50] + "ACCGATCTG" + read[59:]
+    data.madc.write_text(text.replace(read, early))
+    assert run(data) == EXIT_OK
+    out = capsys.readouterr().out
+    assert "WARNING: 1 of 12 alleles were dropped for being shorter than panel.design_length (81)" in out
+    assert "11 of 12 alleles kept, 0 merged as duplicates" in out
+
+
+@requires_cutadapt
+def test_trimming_that_finds_no_adapter_warns(dataset, capsys):
+    assert run(dataset, "--set", "panel.design_length=100") == EXIT_OK
+    assert "WARNING: No kept allele was shortened by trimming" in capsys.readouterr().out
+
+
+@requires_cutadapt
+def test_trimming_that_keeps_nothing_stops_the_run(tmp_path, capsys):
+    data = make_dataset(tmp_path / "data", trim_design=81)
+    assert run(data, "--set", "panel.design_length=100") == EXIT_ERROR
+    assert "Trimming left no alleles" in capsys.readouterr().err
+
+
+def test_a_database_with_no_hits_warns(dataset, capsys):
+    # Same IDs, unrelated sequences, so the markers pass the checks but nothing aligns
+    rng = random.Random(3)
+    names = [line.strip() for line in dataset.allele_db.read_text().splitlines() if line.startswith(">")]
+    dataset.allele_db.write_text("".join(f"{name}\n{''.join(rng.choice('ACGT') for _ in range(109))}\n" for name in names))
+    assert run(dataset) == EXIT_OK
+    out = capsys.readouterr().out
+    assert "0 of 12 alleles hit their own marker" in out
+    assert "WARNING: No allele had a BLAST hit at its own marker" in out
 
 
 def test_step_output_goes_to_the_log_unless_verbose(tmp_path, capsys):

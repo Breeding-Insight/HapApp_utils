@@ -108,6 +108,14 @@ def test_required_settings_are_still_required(dataset):
         load_config(dataset.config)
 
 
+def test_words_yaml_reads_as_booleans_are_rejected(dataset):
+    settings = dataset.settings()
+    settings["project_id"] = False  # what YAML makes of an unquoted NO
+    dataset.write_settings(settings)
+    with pytest.raises(ConfigError, match="project_id was read as False. Put its value in quotes."):
+        load_config(dataset.config)
+
+
 def test_unknown_override_is_rejected(dataset):
     with pytest.raises(ConfigError, match="Unknown setting"):
         load_config(dataset.config, ["filter.min_read=30"])

@@ -36,6 +36,11 @@ def read_lengths(path):
     return lengths
 
 
+def count_records(path):
+    with open(path) as handle:
+        return sum(1 for line in handle if line.startswith(">"))
+
+
 def write_fasta(records, path):
     with open(path, "w") as out:
         for name, sequence in records:

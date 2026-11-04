@@ -51,6 +51,19 @@ def longest_ref_read(path):
     return longest
 
 
+def count_match_rows(path):
+    """The number of alleles in the report other than Ref and Alt."""
+    count = 0
+    header_seen = False
+    with open(path, encoding="utf-8-sig") as handle:
+        for line in handle:
+            if not header_seen:
+                header_seen = line.startswith("AlleleID,")
+            elif not line.split(",", 1)[0].endswith(("|Ref", "|Alt")):
+                count += 1
+    return count
+
+
 def read_marker_ids(path):
     """The markers named in the report, taken from the part of each AlleleID before the |."""
     markers = set()

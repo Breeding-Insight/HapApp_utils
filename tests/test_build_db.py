@@ -269,6 +269,8 @@ def test_problem_markers_are_removed_from_all_outputs(build_data):
     outputs = manifest(build_data)["outputs"]
 
     assert counts["markers_removed_as_duplicates"] == [build_data.duplicate_pair[1]]
+    assert any("do not match the genome" in text for text in manifest(build_data)["warnings"])
+    assert any("not having both alleles" in text for text in manifest(build_data)["warnings"])
     assert counts["markers_removed_without_alleles"] == list(build_data.placed_badly)
     removed = [build_data.duplicate_pair[1], *build_data.placed_badly]
 
@@ -323,7 +325,7 @@ def test_core_database_feeds_assign(build_data, tmp_path, capsys):
 
 
 @requires_tools
-def test_reads_shorter_than_the_allele_length_are_extended_from_the_genome(tmp_path):
+def test_reads_shorter_than_the_allele_length_are_extended_from_the_genome(tmp_path, capsys):
     full = make_build_dataset(tmp_path / "full")
     assert build(full) == EXIT_OK
     short = make_build_dataset(tmp_path / "short")
@@ -336,6 +338,7 @@ def test_reads_shorter_than_the_allele_length_are_extended_from_the_genome(tmp_p
         rewritten.append(",".join(cells))
     short.madc.write_text("".join(rewritten))
     assert build(short) == EXIT_OK
+    assert "extended from 81 bp reads to 109 bp" in capsys.readouterr().out
     # Every read is now 81 bp, but both strands, indels and all, the alleles come out as before
     assert database(short) == database(full)
     assert {len(sequence) for name, sequence in database(short).items()
@@ -400,7 +403,7 @@ def test_until_stops_early_and_used_folder_is_refused(build_data, capsys):
 def test_short_flanks_warn_about_cut_alleles(build_data, capsys):
     assert build(build_data, "--set", "database.flank_length=60") == EXIT_OK
     assert manifest(build_data)["counts"]["short_snp_alleles"]
-    assert "shorter than requested" in capsys.readouterr().out
+    assert "SNP alleles are shorter than requested (109 bp). Raise database.flank_length." in capsys.readouterr().out
 
 
 def test_stage_names_match_the_workflow():

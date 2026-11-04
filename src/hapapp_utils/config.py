@@ -146,6 +146,9 @@ def _convert(key, kind, value, base):
         if isinstance(value, bool) or not isinstance(value, (int, float)):
             raise ConfigError(f"{key} must be a number, got {value!r}")
         return float(value)
+    if isinstance(value, bool):
+        # YAML reads unquoted words such as NO and on as true or false
+        raise ConfigError(f"{key} was read as {value}. Put its value in quotes.")
     return str(value)
 
 
@@ -213,7 +216,7 @@ def load_config(path, overrides=(), outdir=None, schema=None):
             close = difflib.get_close_matches(key, schema, n=1)
             described.append(f"{key} (did you mean {close[0]}?)" if close else key)
         raise ConfigError(f"Unknown setting(s): {', '.join(described)}. "
-                          "Run hapapp-utils init to see the valid settings, or read docs/cli.md.")
+                          "Run hapapp-utils init to see the valid settings.")
 
     values = {}
     missing = []

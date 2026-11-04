@@ -12,10 +12,10 @@ import shutil
 from collections import Counter
 from pathlib import Path
 
-from ..checks import PROBLEM, preflight_build_db, read_chromosome_map
+from ..checks import PROBLEM, WARNING, preflight_build_db, read_chromosome_map
 from ..config import BUILD_DB_SCHEMA
 from ..fasta import fetch_subsequences, iter_fasta, read_lengths, write_fasta
-from ..madc import read_layout, read_marker_ids
+from ..madc import longest_ref_read, read_layout, read_marker_ids
 from ..probe_design import read_probe_rows, write_probe_csv
 from ..steps.core_db import (
     db00_prep_lut_from_probeDesign as prepare_lookup,
@@ -65,6 +65,7 @@ class _BuildDbRun:
         self.final_counts = f"versions/{cfg.database.name}_v001_matchCnt_lut.txt"
         self.readme = f"{self.final_db[:-3]}_process.readme"
         self.summary = {}
+        self.warnings = []
 
     def readme_header(self):
         cfg = self.cfg
@@ -120,7 +121,11 @@ class _BuildDbRun:
             raise PipelineError("No marker's Ref or Alt base matches the genome at its position. "
                                 "Check that the genome is the assembly the probes were designed on, "
                                 "and that its chromosome names are matched correctly.")
-        return f"{built} of {self.summary['markers_in_lookup']} markers match the genome"
+        markers = self.summary["markers_in_lookup"]
+        if built < markers:
+            self.warnings.append(f"The Ref or Alt bases of {markers - built} of {markers} markers do not match the "
+                                 "genome at their positions, so they will be removed.")
+        return f"{built} of {markers} markers match the genome"
 
     def _blast(self, database, out):
         run_tool(["blastn", "-task", "blastn-short", "-dust", "no", "-soft_masking", "false",
@@ -149,7 +154,11 @@ class _BuildDbRun:
         self._blast(self.oriented_flanks, hits)
         call_step(allele_keys, [self.lookup, hits, str(self.length)])
         keys = f"{hits[:-3]}_{self.length}bp_sfetchKeys.txt"
-        return f"{fetch_subsequences(self.oriented_flanks, keys, self.alleles)} alleles"
+        alleles = fetch_subsequences(self.oriented_flanks, keys, self.alleles)
+        read_length = longest_ref_read(self.report)
+        if read_length and read_length < self.length:
+            return f"{alleles} alleles, extended from {read_length} bp reads to {self.length} bp"
+        return f"{alleles} alleles"
 
     def _duplicate_pairs(self):
         """Pairs of Ref alleles from different markers that are near-identical, from MMseqs2."""
@@ -183,6 +192,8 @@ class _BuildDbRun:
         duplicates = sorted({pair[1].split("|")[0] for pair in pairs})
         self.summary["markers_removed_as_duplicates"] = duplicates
         self.summary["markers_removed_without_alleles"] = missing
+        if missing:
+            self.warnings.append(f"{len(missing)} marker(s) were removed for not having both alleles: {missing[:5]}")
         self.final_lookup = self.lookup
         self.current_counts, self.current_alleles = self.counts, self.alleles
         if not pairs and not missing:
@@ -219,7 +230,10 @@ class _BuildDbRun:
         short = sorted(name for name, sequence in alleles.items()
                        if name.split("|")[0] in snps and len(sequence) < self.length)
         self.summary["short_snp_alleles"] = short
-        return f"{len(short)} SNP alleles shorter than {self.length} bp; raise flank_length" if short else None
+        if short:
+            self.warnings.append(f"{len(short)} SNP alleles are shorter than requested ({self.length} bp). "
+                                 "Raise database.flank_length.")
+        return f"{len(alleles)} alleles from {self.summary['markers_in_database']} markers"
 
     def outputs(self):
         return {
@@ -244,5 +258,6 @@ def run_build_db(cfg, until=None, verbose=False, command=None, console=None):
         "madc_samples": len(read_layout(cfg.inputs.madc).samples),
         "madc_markers": len(read_marker_ids(cfg.inputs.madc)),
     }
-    return run_stages(cfg, _BuildDbRun(cfg), STAGES, BUILD_DB_SCHEMA, BUILD_DB_TOOLS, details,
+    warnings = [finding.message for finding in findings if finding.level == WARNING]
+    return run_stages(cfg, _BuildDbRun(cfg), STAGES, BUILD_DB_SCHEMA, BUILD_DB_TOOLS, details, warnings,
                       until=until, verbose=verbose, command=command, console=console)

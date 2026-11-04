@@ -94,6 +94,13 @@ def _require_workflow(path, wanted):
                           f"or start a settings file with: hapapp-utils init --workflow {wanted}")
 
 
+def _print_run_record(summary):
+    print(f"  Full log               {summary['process_readme']}")
+    print("  Settings and versions  resolved_config.yaml, run_manifest.json")
+    if summary["warnings"]:
+        print(f"\n{len(summary['warnings'])} warning(s), shown above and saved in run_manifest.json.")
+
+
 def _cmd_build_db(args):
     from .workflows.build_db import run_build_db
 
@@ -113,11 +120,7 @@ def _cmd_build_db(args):
         if removed:
             print(f"  Markers removed        {outputs['markers_removed']}")
             print(f"                         {', '.join(removed[:5])}{' ...' if len(removed) > 5 else ''}")
-        if counts["short_snp_alleles"]:
-            print(f"  WARNING: {len(counts['short_snp_alleles'])} SNP alleles are shorter than requested; "
-                  "raise database.flank_length")
-    print(f"  Full log               {summary['process_readme']}")
-    print("  Settings and versions  resolved_config.yaml, run_manifest.json")
+    _print_run_record(summary)
     if "alleles" in counts:
         print("\nTo use it, put the allele database, count table and lookup table in your assign settings.")
     return EXIT_OK
@@ -142,8 +145,7 @@ def _cmd_assign(args):
         print(f"  Count table            {outputs['match_counts']}")
         print(f"  Presence/absence       {outputs['hap_pa']}")
         print(f"  Sample status          {outputs['hap_status']}")
-    print(f"  Full log               {summary['process_readme']}")
-    print("  Settings and versions  resolved_config.yaml, run_manifest.json")
+    _print_run_record(summary)
     return EXIT_OK
 
 

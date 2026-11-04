@@ -19,6 +19,7 @@ from ..config import config_to_dict
 from ..tools import ToolError, tool_version
 
 BLAST_COLUMNS = "6 qseqid qlen qstart qend sseqid slen sstart send length qcovs pident evalue"
+MAX_STEP_WARNINGS_SHOWN = 5
 
 
 class PipelineError(Exception):
@@ -29,13 +30,19 @@ class CannotStart(PipelineError):
     """A problem found before the run began, so there is no process readme to read."""
 
 
-class _Tee:
-    def __init__(self, *streams):
-        self.streams = streams
+class _StepOutput:
+    """Where step output goes: the log, the screen if verbose, and a list of any warnings."""
+
+    def __init__(self, log, console=None):
+        self.streams = [log, console] if console else [log]
+        self.partial = ""
+        self.warnings = []
 
     def write(self, text):
         for stream in self.streams:
             stream.write(text)
+        *lines, self.partial = (self.partial + text).split("\n")
+        self.warnings += [line.replace("[WARNING]", "").strip() for line in lines if "[WARNING]" in line]
         return len(text)
 
     def flush(self):
@@ -89,12 +96,14 @@ def _write_readme_header(log, run, manifest, outdir):
     print(file=log)
 
 
-def run_stages(cfg, run, stages, schema, tools, details=None, until=None, verbose=False, command=None, console=None):
+def run_stages(cfg, run, stages, schema, tools, details=None, warnings=(), until=None, verbose=False, command=None,
+               console=None):
     """Run a workflow's stages inside its output folder. Returns the saved manifest.
 
     run provides copy_inputs(), outputs(), counts_summary(), readme_header(), a readme path that
-    a stage may change, and a stage_<name>() method for each stage. A stage may return a short note
-    to show in place of "done".
+    a stage may change, a warnings list that a stage may add to, and a stage_<name>() method for each
+    stage. A stage may return a short note to show in place of "done". warnings holds any found before
+    the run. Those, the stages' own, and any [WARNING] line a step prints all reach the screen.
     """
     console = console or sys.stdout
     outdir = cfg.output.dir
@@ -122,17 +131,33 @@ def run_stages(cfg, run, stages, schema, tools, details=None, until=None, verbos
     save_manifest()
     opened_as = run.readme
     (outdir / opened_as).parent.mkdir(parents=True, exist_ok=True)
+    all_warnings = list(warnings)
     try:
         with open(outdir / opened_as, "w", buffering=1) as log:
-            stream = _Tee(log, console) if verbose else log
+            output = _StepOutput(log, console if verbose else None)
 
             def say(text):
                 print(text, file=console, flush=True)
                 print(text, file=log)
 
+            def show_new_warnings(run_shown, step_shown):
+                """Show warnings since the last stage. Returns how many of each have now been shown."""
+                for text in run.warnings[run_shown:]:
+                    say(f"      WARNING: {text}")
+                fresh = output.warnings[step_shown:]
+                for text in fresh[:MAX_STEP_WARNINGS_SHOWN]:
+                    say(f"      WARNING: {text}")
+                if len(fresh) > MAX_STEP_WARNINGS_SHOWN:
+                    say(f"      ... and {len(fresh) - MAX_STEP_WARNINGS_SHOWN} more in {run.readme}")
+                all_warnings.extend(run.warnings[run_shown:] + fresh)
+                return len(run.warnings), len(output.warnings)
+
             _write_readme_header(log, run, manifest, outdir)
+            for text in warnings:
+                say(f"WARNING: {text}")
+            run_shown = step_shown = 0
             try:
-                with _working_directory(outdir), contextlib.redirect_stdout(stream), contextlib.redirect_stderr(stream):
+                with _working_directory(outdir), contextlib.redirect_stdout(output), contextlib.redirect_stderr(output):
                     run.copy_inputs()
                     names = list(stages)
                     for number, name in enumerate(names, 1):
@@ -140,6 +165,7 @@ def run_stages(cfg, run, stages, schema, tools, details=None, until=None, verbos
                         start = time.monotonic()
                         note = getattr(run, f"stage_{name.replace('-', '_')}")()
                         say(f"      {note or 'done'} ({time.monotonic() - start:.0f} s)")
+                        run_shown, step_shown = show_new_warnings(run_shown, step_shown)
                         if name == until:
                             break
                     manifest["status"] = "finished" if until in (None, names[-1]) else f"stopped after {until}"
@@ -151,6 +177,7 @@ def run_stages(cfg, run, stages, schema, tools, details=None, until=None, verbos
                 print("[STOPPED] Interrupted by the user", file=log)
                 raise
             except Exception as err:
+                show_new_warnings(run_shown, step_shown)
                 manifest["status"] = "failed"
                 manifest["error"] = str(err)
                 if not isinstance(err, (PipelineError, ToolError)):
@@ -161,6 +188,7 @@ def run_stages(cfg, run, stages, schema, tools, details=None, until=None, verbos
         if run.readme != opened_as:
             os.replace(outdir / opened_as, outdir / run.readme)
         manifest["process_readme"] = run.readme
+        manifest["warnings"] = all_warnings
         manifest["finished"] = datetime.now().isoformat(timespec="seconds")
         save_manifest()
     return manifest
