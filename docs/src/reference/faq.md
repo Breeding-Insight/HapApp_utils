@@ -66,3 +66,10 @@ python -m hapapp_utils.steps.assign.step05_parse_madc_matchAlleles_blastn --help
 
 The tool catches any unexpected failure inside a step and names the step. The process readme holds the full Python
 error. If you think you found a bug, please open an issue and attach that file.
+
+## What are the tool's known limits?
+
+- We have checked it on real data from one panel, which holds only SNPs. Indels have only run on synthetic data in
+  the test suite, so check your results closely if your panel has indels.
+- BLAST+, MMseqs2 and cutadapt can change results between versions. Each run records the versions it used in
+  `run_manifest.json`.
