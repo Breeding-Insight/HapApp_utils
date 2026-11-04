@@ -98,7 +98,7 @@ This file records each run. Its `counts` section holds the numbers the run print
     "database_after": 24529
   },
   "warnings": ["1 MADC marker(s) are not in the lookup table and will be dropped: ['Chr06_021528607']"],
-  "process_readme": "versions/redClover_allele_db_v004_process.readme"
+  "process_readme": "versions/species_allele_db_v004_process.readme"
 }
 ```
 

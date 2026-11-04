@@ -1,10 +1,10 @@
 # Build a Core Database
 
-This tutorial builds the first allele database for a panel, using the red clover DArTag panel as the
-example. It has 3,000 markers on the ARS_RC_1.1 assembly.
+This tutorial builds the first allele database for a panel, using a DArTag panel with 3,000 markers as the
+example.
 
 A MADC cannot supply these alleles directly, because its Ref and Alt sequences can contain IUPAC codes.
-The red clover MADC has 334 markers with these codes. `build-db` uses the MADC only to find where each
+This panel's MADC has 334 markers with these codes. `build-db` uses the MADC only to find where each
 amplicon sits, then takes the allele sequences from the genome.
 
 ## What you need
@@ -24,13 +24,13 @@ settings also point to a [chromosome map](../getting-started/input-files.md#chro
 
 ```yaml
 inputs:
-  probe_design: Red_Clover_DArT_ProbeDesign.xlsx
-  madc: DCl26-12123_MADC.csv
-  genome: GCF_020283565.1_ARS_RC_1.1_genomic.fna
-  chromosome_map: red_clover_chromosome_map.csv
+  probe_design: probe_design.xlsx
+  madc: PROJECT01_MADC.csv
+  genome: reference_genome.fa
+  chromosome_map: chromosome_map.csv
 
 database:
-  name: redClover_allele_db
+  name: species_allele_db
   allele_length: 109
   flank_length: 150
 
@@ -93,8 +93,8 @@ them apart. The tool removed `Chr06_021528607` from the database, the count tabl
 
 You now have three files for `assign`:
 
-- `versions/redClover_allele_db_v001.fa`
-- `versions/redClover_allele_db_v001_matchCnt_lut.txt`
+- `versions/species_allele_db_v001.fa`
+- `versions/species_allele_db_v001_matchCnt_lut.txt`
 - `probe/*_rmDupTag_snpID_lut.csv`, or `probe/*_snpID_lut.csv` if the run removed no markers
 
 Copy them to where you keep your databases, then continue with

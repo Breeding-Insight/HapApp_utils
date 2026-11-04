@@ -52,8 +52,8 @@ Optional, for `build-db`. A CSV with no header, listing the probe file's name an
 name:
 
 ```text
-Chr01,NC_060059.1
-Chr02,NC_060060.1
+Chr01,NC_012345.1
+Chr02,NC_012346.1
 ```
 
 ## Marker lookup table

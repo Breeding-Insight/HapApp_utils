@@ -31,5 +31,5 @@ It writes two files next to the input report:
 ## Example
 
 ```bash
-hapapp-utils hap-pa --madc report/DCl26-12123_MADC_snpID_rename.csv --descriptor DCl26-12123 --read-threshold 20
+hapapp-utils hap-pa --madc report/PROJECT01_MADC_snpID_rename.csv --descriptor PROJECT01 --read-threshold 20
 ```

@@ -1,7 +1,7 @@
 # Validation
 
-We checked `hapapp-utils` against the bash workflows and an existing database, using a red clover DArTag panel:
-3,000 markers, 94 samples and the ARS_RC_1.1 assembly.
+We checked `hapapp-utils` against the bash workflows and an existing database, using a DArTag panel with
+3,000 markers and 94 samples.
 
 ## build-db
 
@@ -35,7 +35,7 @@ its filter counted summary columns as samples.
 
 ## Test suite
 
-The test suite runs each workflow on a small synthetic dataset. It covers cases the red clover panel lacks: indels,
+The test suite runs each workflow on a small synthetic dataset. It covers cases that panel lacks: indels,
 markers the tool cannot place, mixed insert sizes, adapter trimming and reports without summary columns.
 
 To compare a real run with saved results:

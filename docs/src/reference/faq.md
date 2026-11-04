@@ -24,7 +24,7 @@ read can give a 109 bp allele. This prepares the database for longer reads later
 ## Do I need esl-sfetch and seqkit?
 
 Not for the CLI. `build-db` does those two jobs in Python: cutting a range from a FASTA and picking the Ref alleles by
-name. On the red clover panel, the results match both tools exactly. The Python version also writes no index file next
+name. On a 3,000-marker DArTag panel, the results match both tools exactly. The Python version also writes no index file next
 to your genome. The bash workflows still use both tools.
 
 ## My genome uses NCBI chromosome names. What do I do?

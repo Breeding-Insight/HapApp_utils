@@ -71,20 +71,20 @@ hapapp-utils assign -c run.yaml
 A settings file for `assign` needs only your files and panel lengths:
 
 ```yaml
-project_id: DCl26-12123
+project_id: PROJECT01
 
 inputs:
-  madc: DCl26-12123_MADC.csv
-  marker_lut: redClover_snpID_lut.csv
-  allele_db: redClover_allele_db_v003.fa
-  match_counts: redClover_allele_db_v003_matchCnt_lut.txt
+  madc: PROJECT01_MADC.csv
+  marker_lut: species_snpID_lut.csv
+  allele_db: species_allele_db_v003.fa
+  match_counts: species_allele_db_v003_matchCnt_lut.txt
 
 panel:
   design_length: 109
   sequencing_length: 109
 
 output:
-  dir: runs/DCl26-12123
+  dir: runs/PROJECT01
 ```
 
 To try other thresholds, change them for one run and send the results to a new folder:
@@ -140,8 +140,7 @@ The full documentation is at [hapapp-utils.readthedocs.io](https://hapapp-utils.
 
 ## Validation
 
-We checked this tool on a red clover DArTag panel with 3,000 markers and 94 samples, on the ARS_RC_1.1
-assembly:
+We checked this tool on a DArTag panel with 3,000 markers and 94 samples:
 
 | Check | Result |
 |-------|--------|

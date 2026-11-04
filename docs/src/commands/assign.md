@@ -40,20 +40,20 @@ The run copies its inputs into a new folder and works there, so your input datab
 [Settings](../reference/settings.md#assign) lists every setting. A minimal file:
 
 ```yaml
-project_id: DCl26-12123
+project_id: PROJECT01
 
 inputs:
-  madc: DCl26-12123_MADC.csv
-  marker_lut: redClover_snpID_lut.csv
-  allele_db: redClover_allele_db_v003.fa
-  match_counts: redClover_allele_db_v003_matchCnt_lut.txt
+  madc: PROJECT01_MADC.csv
+  marker_lut: species_snpID_lut.csv
+  allele_db: species_allele_db_v003.fa
+  match_counts: species_allele_db_v003_matchCnt_lut.txt
 
 panel:
   design_length: 109
   sequencing_length: 109
 
 output:
-  dir: runs/DCl26-12123
+  dir: runs/PROJECT01
 ```
 
 ## Output

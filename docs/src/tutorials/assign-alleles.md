@@ -1,6 +1,6 @@
 # Assign Allele IDs
 
-This tutorial processes one MADC against a panel's database, using a red clover order with 94 samples.
+This tutorial processes one MADC against a panel's database, using an order with 94 samples.
 
 ## Write the settings
 
@@ -9,13 +9,13 @@ hapapp-utils init run.yaml
 ```
 
 ```yaml
-project_id: DCl26-12123
+project_id: PROJECT01
 
 inputs:
-  madc: DCl26-12123_MADC.csv
-  marker_lut: redClover_snpID_lut.csv
-  allele_db: redClover_allele_db_v003.fa
-  match_counts: redClover_allele_db_v003_matchCnt_lut.txt
+  madc: PROJECT01_MADC.csv
+  marker_lut: species_snpID_lut.csv
+  allele_db: species_allele_db_v003.fa
+  match_counts: species_allele_db_v003_matchCnt_lut.txt
 
 panel:
   design_length: 109
@@ -30,7 +30,7 @@ blast:
   min_identity: 85
 
 output:
-  dir: runs/DCl26-12123
+  dir: runs/PROJECT01
 ```
 
 These thresholds suit this multi-species trial. Leave out the `filter` and `blast` sections to use the
@@ -46,7 +46,7 @@ hapapp-utils check -c run.yaml
   ok       MADC: 94 samples, first sample in column 17
   WARNING  1 MADC marker(s) are not in the lookup table and will be dropped: ['Chr06_021528607']
   ok       Count table and allele database agree
-  ok       Output folder: runs/DCl26-12123
+  ok       Output folder: runs/PROJECT01
 
 0 problem(s), 1 warning(s).
 ```
@@ -104,7 +104,7 @@ v2,Chr01_000120735|Ref_0001,Chr01_000120735,GGTGATGAGTGG...,0,12,...
 v2,Chr01_000120735|RefMatch_0001,Chr01_000120735,GGTGATGAGTGA...,0,0,...
 ```
 
-The process readme, `versions/redClover_allele_db_v004_process.readme`, opens with the input files and
+The process readme, `versions/species_allele_db_v004_process.readme`, opens with the input files and
 settings for this run, followed by everything each step printed.
 
 ## Accept the new database
@@ -112,8 +112,8 @@ settings for this run, followed by everything each step printed.
 The run left your input database unchanged. If you accept these results, copy these files to where you
 keep your databases, and use them for the next project:
 
-- `versions/redClover_allele_db_v004.fa`
-- `versions/redClover_allele_db_v004_matchCnt_lut.txt`
+- `versions/species_allele_db_v004.fa`
+- `versions/species_allele_db_v004_matchCnt_lut.txt`
 
 To add this project to a matrix of earlier projects, set
 [`inputs.previous_hap_pa`](../reference/settings.md#inputs-for-assign) before the run, or use

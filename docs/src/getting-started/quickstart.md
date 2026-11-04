@@ -17,11 +17,11 @@ Open `build.yaml` and fill in your files:
 ```yaml
 inputs:
   probe_design: probe_design.xlsx
-  madc: DCl26-12123_MADC.csv
+  madc: PROJECT01_MADC.csv
   genome: reference_genome.fa
 
 database:
-  name: redClover_allele_db
+  name: species_allele_db
   allele_length: 109
 
 output:
@@ -50,20 +50,20 @@ Point it at the MADC and the files from step 1. Copy those three files to a plac
 as a `databases` folder:
 
 ```yaml
-project_id: DCl26-12123
+project_id: PROJECT01
 
 inputs:
-  madc: DCl26-12123_MADC.csv
-  marker_lut: databases/redClover_snpID_lut.csv
-  allele_db: databases/redClover_allele_db_v001.fa
-  match_counts: databases/redClover_allele_db_v001_matchCnt_lut.txt
+  madc: PROJECT01_MADC.csv
+  marker_lut: databases/species_snpID_lut.csv
+  allele_db: databases/species_allele_db_v001.fa
+  match_counts: databases/species_allele_db_v001_matchCnt_lut.txt
 
 panel:
   design_length: 109
   sequencing_length: 109
 
 output:
-  dir: runs/DCl26-12123
+  dir: runs/PROJECT01
 ```
 
 Check it, then run it:

@@ -19,7 +19,7 @@ Each run saves its counts in `run_manifest.json`, and its settings in `resolved_
 
 ## An example
 
-These runs used a red clover panel of 2,999 markers on 94 samples from four *Trifolium* species, starting
+These runs used a panel of 2,999 markers on 94 samples from four related species, starting
 from a database of 16,400 sequences. Of the 77,491 alleles in the MADC, 41,119 had only one read across all
 samples.
 
