@@ -159,6 +159,17 @@ def test_layout_of_a_three_column_madc(tmp_path):
     assert layout.samples == SAMPLES
 
 
+def test_layout_ignores_renamed_statistics_columns(tmp_path):
+    # MADCATS writes Variants and MarkerType in place of PICSnp and AvgPIC
+    path = tmp_path / "madcats.csv"
+    path.write_text("AlleleID,CloneID,AlleleSequence,ClusterConsensusSequence,CallRate,OneRatioRef,OneRatioSnp,"
+                    "FreqHomRef,FreqHomSnp,FreqHets,PICRef,Variants,MarkerType,AvgCountRef,AvgCountSnp,"
+                    "RatioAvgCountRefAvgCountSnp,Line_01,Line_02\n")
+    layout = read_layout(path)
+    assert layout.first_sample_column == 17
+    assert layout.samples == ["Line_01", "Line_02"]
+
+
 def test_layout_needs_a_header(tmp_path):
     path = tmp_path / "bad.csv"
     path.write_text("not,a,madc\n")

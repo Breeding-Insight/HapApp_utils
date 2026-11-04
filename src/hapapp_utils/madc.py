@@ -11,6 +11,9 @@ METADATA_COLUMNS = {
     "AvgCountRef", "AvgCountSnp", "RatioAvgCountRefAvgCountSnp",
 }
 
+# In a full layout the samples follow this column, whatever other tools call the statistics columns before it
+LAST_METADATA_COLUMN = "RatioAvgCountRefAvgCountSnp"
+
 
 @dataclass
 class MadcLayout:
@@ -32,7 +35,10 @@ def read_layout(path):
                     for required in ("CloneID", "AlleleSequence"):
                         if required not in cells:
                             raise ValueError(f"{path}: header row has no {required} column")
-                    first = next((i for i, name in enumerate(cells) if name not in METADATA_COLUMNS), len(cells))
+                    if LAST_METADATA_COLUMN in cells:
+                        first = cells.index(LAST_METADATA_COLUMN) + 1
+                    else:
+                        first = next((i for i, name in enumerate(cells) if name not in METADATA_COLUMNS), len(cells))
                     return MadcLayout(first + 1, cells[first:], filler_columns)
     except UnicodeDecodeError as err:
         raise ValueError(f"{path} is not a text file. Export the MADC as a .csv file, not Excel, "
