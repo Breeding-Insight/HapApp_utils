@@ -1,6 +1,6 @@
 # HapApp_utils
 
-[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](https://github.com/Breeding-Insight/HapApp_utils/blob/master/LICENSE)
+[![License: Apache 2.0](https://img.shields.io/badge/License-Apache_2.0-blue.svg)](https://github.com/Breeding-Insight/HapApp_utils/blob/master/LICENSE)
 [![Tests](https://github.com/Breeding-Insight/HapApp_utils/actions/workflows/tests.yml/badge.svg)](https://github.com/Breeding-Insight/HapApp_utils/actions/workflows/tests.yml)
 [![Documentation](https://img.shields.io/badge/docs-readthedocs-blue.svg)](https://hapapp.readthedocs.io)
 
@@ -181,4 +181,4 @@ authors directed the work, reviewed and tested the results, and are ultimately r
 
 ## License
 
-MIT
+[Apache License 2.0](https://github.com/Breeding-Insight/HapApp_utils/blob/master/LICENSE)
