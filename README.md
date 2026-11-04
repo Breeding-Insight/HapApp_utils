@@ -166,13 +166,19 @@ the code layout and the documentation build.
 
 ## Citation
 
-If you use HapApp_utils in your work, please cite the repository:
+If you use HapApp_utils in your work, please cite:
 
-> Breeding Insight (2026). HapApp_utils: fixed microhaplotype IDs and versioned allele databases for
-> targeted genotyping panels. GitHub repository: https://github.com/Breeding-Insight/HapApp_utils
+> Zhao D, Lin M, Taniguti CH, Sandercock AM, et al. (2026). Standardized microhaplotype databases and frameworks for
+> assessing and mining crop genetic diversity. *Theoretical and Applied Genetics* 139(9):244.
+> https://doi.org/10.1007/s00122-026-05340-4
 
 For the MADC format, see Breeding Insight's
 [MADC file format overview](https://breeding-insight.github.io/BIGr_documentation/posts/madc-file-format/).
+
+**AI assistance:** AI assistance applies to version 2 of HapApp_utils and its documentation, not to version 1. Dongyan
+Zhao wrote version 1, the step scripts and bash workflows. For version 2, Claude Opus 5.5 (Anthropic) helped convert those
+workflows into the Python command-line tool, fix bugs in the step scripts, and write the tests and documentation. The
+authors directed the work, reviewed and tested the results, and are ultimately responsible for the application.
 
 ## License
 

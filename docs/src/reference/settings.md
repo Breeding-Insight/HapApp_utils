@@ -15,7 +15,7 @@ your current folder.
 
 ## assign
 
-The last column of each table names the matching variable in the `build02` bash workflow.
+The Bash variable column names the matching variable in the `build02` bash workflow.
 
 ### Project
 
@@ -80,7 +80,7 @@ coverage, 80% identity), because each project edits that block.
 
 ## build-db
 
-The last column of each table names the matching variable in the `build01` bash workflow.
+The Bash variable column names the matching variable in the `build01` bash workflow.
 
 ### Inputs for build-db
 
