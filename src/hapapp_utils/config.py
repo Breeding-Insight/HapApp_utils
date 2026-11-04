@@ -215,8 +215,10 @@ def load_config(path, overrides=(), outdir=None, schema=None):
         for key in unknown:
             close = difflib.get_close_matches(key, schema, n=1)
             described.append(f"{key} (did you mean {close[0]}?)" if close else key)
+        # A separate file name, so that following this advice cannot touch the user's run.yaml
+        template = "template.yaml --workflow build-db" if schema is BUILD_DB_SCHEMA else "template.yaml"
         raise ConfigError(f"Unknown setting(s): {', '.join(described)}. "
-                          "Run hapapp-utils init to see the valid settings.")
+                          f"To see the valid settings, run: hapapp-utils init {template}")
 
     values = {}
     missing = []

@@ -16,7 +16,7 @@ folder. If the error came later, the output folder holds a partial run and a pro
 |---------|-------|------------|
 | `Settings file not found` | Wrong path to the settings file | Check the path |
 | `Missing required setting(s)` | The file lacks a required setting | Add the settings it names |
-| `Unknown setting(s) ... (did you mean ...?)` | A misspelled setting | Use the name it suggests |
+| `Unknown setting(s) ... (did you mean ...?)` | A misspelled setting, or a setting that belongs to another command | Use the name it suggests, or run the `init` command it shows to see the valid settings |
 | `holds settings for assign, not build-db` | The settings file belongs to the other command | Run the other command, or use `init --workflow` |
 | `was read as False. Put its value in quotes.` | YAML treats words such as `NO` as true or false | Put the value in quotes |
 | `is not installed or not on PATH` | A program is missing | Follow [Installation](../getting-started/installation.md) |

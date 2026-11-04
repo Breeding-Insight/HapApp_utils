@@ -12,8 +12,16 @@ from hapapp_utils.checks import (
     minted_ids_missing_from_fasta,
     preflight,
 )
-from hapapp_utils.cli import ASSIGN_STAGES
-from hapapp_utils.config import SCHEMA, TEMPLATE, ConfigError, config_to_dict, load_config
+from hapapp_utils.cli import ASSIGN_STAGES, main
+from hapapp_utils.config import (
+    BUILD_DB_SCHEMA,
+    BUILD_DB_TEMPLATE,
+    SCHEMA,
+    TEMPLATE,
+    ConfigError,
+    config_to_dict,
+    load_config,
+)
 from hapapp_utils.madc import read_layout, read_marker_ids
 from hapapp_utils.steps.assign import (
     step01_filter_missing_AND_ext_matchAlleles_from_madc_v1 as filter_alleles,
@@ -211,6 +219,23 @@ def test_preflight_warns_about_the_wrong_sequencing_length(dataset):
 def test_unknown_setting_suggests_the_closest_one(dataset):
     with pytest.raises(ConfigError, match=r"filter.min_read \(did you mean filter.min_reads\?\)"):
         load_config(dataset.config, ["filter.min_read=30"])
+
+
+@pytest.mark.parametrize("template,schema,bad_setting,listed,not_listed", [
+    (TEMPLATE, SCHEMA, "database.name=x", "min_samples", "allele_length"),
+    (BUILD_DB_TEMPLATE, BUILD_DB_SCHEMA, "filter.min_reads=30", "allele_length", "min_samples"),
+])
+def test_unknown_setting_error_gives_a_command_for_the_right_template(
+        template, schema, bad_setting, listed, not_listed, tmp_path, monkeypatch):
+    monkeypatch.chdir(tmp_path)
+    settings = tmp_path / "settings.yaml"
+    settings.write_text(template)
+    with pytest.raises(ConfigError) as caught:
+        load_config(settings, [bad_setting], schema=schema)
+    command = str(caught.value).split("run: hapapp-utils ")[1].split()
+    assert main(command) == 0
+    written = (tmp_path / "template.yaml").read_text()
+    assert listed in written and not_listed not in written
 
 
 def test_preflight_reports_a_folder_given_as_an_input(dataset):
