@@ -1,0 +1,131 @@
+/*
+ * Breeding Insight colors for this site, from the palette in SoftwareHub/_brand.yml:
+ *
+ *   teal-dark  #2A6576    green-dark  #1E5D28    charcoal  #434544
+ *   teal       #48A9C5    green       #319B42    gray      #707372
+ *   teal-light #B5DDE8    green-light #A3D9AC    mist      #F4F8F8
+ *
+ * .light is the default theme. .navy is the theme for readers whose computer uses dark mode.
+ */
+
+.light, html:not(.js) {
+    --bg: #FFFFFF;
+    --fg: #434544;
+
+    --sidebar-bg: #2A6576;
+    --sidebar-fg: #E6F3F7;
+    --sidebar-non-existant: #B5DDE8;
+    --sidebar-active: #FFFFFF;
+    --sidebar-spacer: #48A9C5;
+    --sidebar-header-border-color: #B5DDE8;
+
+    --scrollbar: #707372;
+
+    --icons: #707372;
+    --icons-hover: #2A6576;
+
+    --links: #2A6576;
+
+    --inline-code-color: #1E5D28;
+
+    --theme-popup-bg: #F4F8F8;
+    --theme-popup-border: #B5DDE8;
+    --theme-hover: #B5DDE8;
+
+    --quote-bg: #F4F8F8;
+    --quote-border: #48A9C5;
+
+    --warning-border: #319B42;
+
+    --table-border-color: #B5DDE8;
+    --table-header-bg: #D3EBF1;
+    --table-alternate-bg: #F4F8F8;
+
+    --searchbar-border-color: #48A9C5;
+    --searchbar-bg: #F4F8F8;
+    --searchbar-fg: #434544;
+    --searchbar-shadow-color: #B5DDE8;
+    --searchresults-header-fg: #434544;
+    --searchresults-border-color: #B5DDE8;
+    --searchresults-li-bg: #F4F8F8;
+    --search-mark-bg: #A3D9AC;
+
+    --footnote-highlight: #48A9C5;
+
+    --blockquote-note-color: #2A6576;
+    --blockquote-tip-color: #1E5D28;
+}
+
+.navy {
+    --bg: #17262C;
+    --fg: #E6EEF0;
+
+    --sidebar-bg: #1F3A44;
+    --sidebar-fg: #FFFFFF;
+    --sidebar-non-existant: #B5DDE8;
+    --sidebar-active: #A3D9AC;
+    --sidebar-spacer: #2A6576;
+    --sidebar-header-border-color: #48A9C5;
+
+    --scrollbar: #707372;
+
+    --icons: #B5DDE8;
+    --icons-hover: #FFFFFF;
+
+    --links: #B5DDE8;
+
+    --inline-code-color: #A3D9AC;
+
+    --theme-popup-bg: #1F3A44;
+    --theme-popup-border: #2A6576;
+    --theme-hover: #2A6576;
+
+    --quote-bg: #1F3A44;
+    --quote-border: #48A9C5;
+
+    --warning-border: #319B42;
+
+    --table-border-color: #2A6576;
+    --table-header-bg: #235462;
+    --table-alternate-bg: #1F3A44;
+
+    --searchbar-border-color: #48A9C5;
+    --searchbar-bg: #1F3A44;
+    --searchbar-fg: #E6EEF0;
+    --searchbar-shadow-color: #2A6576;
+    --searchresults-header-fg: #B5DDE8;
+    --searchresults-border-color: #2A6576;
+    --searchresults-li-bg: #1F3A44;
+    --search-mark-bg: #1E5D28;
+
+    --footnote-highlight: #48A9C5;
+
+    --blockquote-note-color: #B5DDE8;
+    --blockquote-tip-color: #A3D9AC;
+}
+
+/* mdBook has no variable for heading colors or the page title */
+.light .content h1, .light .content h2, .light .content h3,
+.light .content h4, .light .menu-title {
+    color: #2A6576;
+}
+
+.navy .content h1, .navy .content h2, .navy .content h3,
+.navy .content h4, .navy .menu-title {
+    color: #B5DDE8;
+}
+
+/* Heading links inherit the heading color */
+.content h1 a.header, .content h2 a.header, .content h3 a.header, .content h4 a.header {
+    color: inherit;
+}
+
+/* A thin teal line under the top bar, as on the Breeding Insight logo */
+.light #menu-bar, .navy #menu-bar {
+    border-block-end: 3px solid #48A9C5;
+}
+
+/* The current page in the sidebar stands out by weight as well as color */
+.sidebar .chapter li a.active {
+    font-weight: 700;
+}

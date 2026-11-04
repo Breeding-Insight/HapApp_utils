@@ -74,7 +74,8 @@ preview:
 mdbook serve docs --open
 ```
 
-Read the Docs builds the published site from `.readthedocs.yaml`.
+Read the Docs builds the published site from `.readthedocs.yaml`. The colors in `docs/theme/breeding-insight.css`
+come from the Breeding Insight palette.
 
 ## Writing style
 
