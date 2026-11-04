@@ -9,7 +9,8 @@ one haplotype from project to project. `hapapp-utils` compares each allele with 
 reuses its ID if the database already holds that sequence, and issues a new ID if it does not. Every
 project then adds to the same database.
 
-The output goes on to HapApp, BIGr and other tools for dosage calling and VCF conversion.
+The output goes on to [BIGr](https://softwarehub.breedinginsight.org/software/bigr.html) and other tools for dosage calling and VCF
+conversion. [Convert MADC data to a genotype-called VCF](https://softwarehub.breedinginsight.org/learn/madc-to-vcf.html) shows that workflow.
 
 ## Commands
 

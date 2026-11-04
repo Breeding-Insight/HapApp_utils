@@ -172,7 +172,7 @@ If you use HapApp_utils in your work, please cite:
 > https://doi.org/10.1007/s00122-026-05340-4
 
 For the MADC format, see Breeding Insight's
-[MADC file format overview](https://breeding-insight.github.io/BIGr_documentation/posts/madc-file-format/).
+[What is a MADC file?](https://softwarehub.breedinginsight.org/learn/what-is-a-madc-file.html).
 
 **AI assistance:** AI assistance applies to version 2 of HapApp_utils and its documentation, not to version 1. Dongyan
 Zhao wrote version 1, the step scripts and bash workflows. For version 2, Claude Opus 5.5 (Anthropic) helped convert those

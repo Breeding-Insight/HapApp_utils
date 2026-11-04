@@ -35,8 +35,9 @@ work, reviewed and tested the results, and are ultimately responsible for the ap
 
 ## Related Resources
 
-- Breeding Insight, [MADC file format](https://breeding-insight.github.io/BIGr_documentation/posts/madc-file-format/)
-- Breeding Insight, [MADC data processing](https://breeding-insight.github.io/BIGr_documentation/posts/madc-data-processing/)
+- Breeding Insight, [What is a MADC file?](https://softwarehub.breedinginsight.org/learn/what-is-a-madc-file.html)
+- Breeding Insight, [Convert MADC data to a genotype-called VCF](https://softwarehub.breedinginsight.org/learn/madc-to-vcf.html)
+- Breeding Insight, [HapApp](https://softwarehub.breedinginsight.org/software/hapapp.html), a web app in development that processes raw MADC reports
 - Breeding Insight, [MADCATS](https://madcats.readthedocs.io), which generates MADC tables from FASTQ files
 
 ## Example Acknowledgment
