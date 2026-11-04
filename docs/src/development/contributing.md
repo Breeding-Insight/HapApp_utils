@@ -26,8 +26,8 @@ The repository has two long-lived branches:
 | `release` | The same steps and workflows, plus the `hapapp-utils` package, its tests and this documentation | `src/hapapp_utils/`, `workflow/`, `tests/`, `docs/` |
 
 Base a change to the command, the tests or this documentation on `release`. Base a change to a step script or bash
-workflow on `master`, and it reaches `release` at the next merge. Releases to PyPI and Bioconda will come from tags on
-`release`.
+workflow on `master`, and it reaches `release` at the next merge. [Publish a release](#publish-a-release) covers the
+tags on `release` that publish the package.
 
 `master` has no tests of its own, so GitHub Actions tests its changes once they merge into `release`.
 
@@ -132,6 +132,33 @@ mdbook serve docs --open
 
 Read the Docs builds the published site from `.readthedocs.yaml`. The colors in `docs/theme/breeding-insight.css`
 come from the Breeding Insight palette.
+
+## Publish a release
+
+Pushing a version tag from `release` publishes the package to PyPI through `.github/workflows/release.yml`.
+
+1. Set `__version__` in `src/hapapp_utils/__init__.py` and add the version to the [Changelog](changelog.md).
+2. Merge that change into `release`.
+3. Tag the merged commit and push the tag, using the new version number:
+
+```bash
+git tag v2.0.1
+git push upstream v2.0.1
+```
+
+The workflow stops unless the tag matches `__version__` and the commit is on `release`. It then runs the tests on Linux,
+builds the package, publishes it to PyPI and creates a GitHub release.
+
+If the workflow stops before the publish step, fix the problem, delete the tag and tag again. PyPI never accepts the same
+version number twice, so a problem found after publishing needs a new version.
+
+The first release needs a pending publisher on [PyPI's publishing page](https://pypi.org/manage/account/publishing/),
+with the project `hapapp-utils`, the owner `Breeding-Insight`, the repository `HapApp_utils`, the workflow `release.yml`
+and the environment `pypi`.
+
+After PyPI has the release, update `recipes/hapapp-utils/meta.yaml` in
+[bioconda-recipes](https://github.com/bioconda/bioconda-recipes), unless Bioconda's bot has already opened a pull request
+for it.
 
 ## Writing style
 
