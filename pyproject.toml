@@ -18,6 +18,11 @@ dependencies = [
   "pyyaml",
 ]
 
+[project.urls]
+Homepage = "https://github.com/Breeding-Insight/HapApp_utils"
+Documentation = "https://hapapp-utils.readthedocs.io"
+Issues = "https://github.com/Breeding-Insight/HapApp_utils/issues"
+
 [project.optional-dependencies]
 test = ["pytest"]
 

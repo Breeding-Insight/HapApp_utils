@@ -1,0 +1,32 @@
+[book]
+authors = ["Breeding Insight"]
+language = "en"
+src = "src"
+title = "HapApp_utils Documentation"
+description = "Fixed microhaplotype IDs and versioned allele databases for targeted genotyping panels"
+
+[build]
+build-dir = "book"
+create-missing = false
+
+[output.html]
+default-theme = "rust"
+preferred-dark-theme = "navy"
+git-repository-url = "https://github.com/Breeding-Insight/HapApp_utils"
+edit-url-template = "https://github.com/Breeding-Insight/HapApp_utils/edit/master/docs/{path}"
+site-url = "/"
+
+[output.html.fold]
+enable = true
+level = 1
+
+[output.html.search]
+enable = true
+limit-results = 30
+teaser-word-count = 30
+boost-title = 2
+boost-hierarchy = 1
+boost-paragraph = 1
+expand = true
+heading-split-level = 3
+copy-js = true

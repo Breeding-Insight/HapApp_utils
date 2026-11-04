@@ -38,3 +38,4 @@ build/
 dist/
 .pytest_cache/
 .venv/
+docs/book/
