@@ -36,6 +36,9 @@ GitHub Actions runs the tests on every push and pull request, on Python 3.10 to 
 [Settings](../reference/settings.md) lists every setting, and that internal links work. Update the pages when you
 add or change an option or setting.
 
+`tests/test_cli_help.py` guards the command-line help. It runs or loads every example that `--help` shows, so a
+wrong example fails the tests. It also holds the help to 80 columns.
+
 ## Change a step
 
 Edit the module in `src/hapapp_utils/steps/`. Keep its functions and arguments stable, because the workflows and
@@ -56,9 +59,9 @@ When you fix a bug, add a test that fails without the fix.
 Write the module with a `main(argv=None)` function, then call it from the matching stage in
 `src/hapapp_utils/workflows/assign.py` or `build_db.py` using `call_step`.
 
-To add a whole stage, add a `stage_<name>` method to the run class and list the stage in `STAGES`. Then list it in
-`ASSIGN_STAGES` or `BUILD_DB_STAGES` in `cli.py`, and add it to the command's page. A stage can return a short note
-to show on screen, and can add to `self.warnings`.
+To add a whole stage, add a `stage_<name>` method to the run class and list the stage in `STAGES`. Then add it with
+a one-line explanation to `ASSIGN_STAGE_HELP` or `BUILD_DB_STAGE_HELP` in `cli.py`, and add it to the command's page.
+A stage can return a short note to show on screen, and can add to `self.warnings`.
 
 ## Add a setting
 

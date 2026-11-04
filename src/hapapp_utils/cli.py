@@ -9,57 +9,135 @@ from pathlib import Path
 from . import __version__
 from .config import BUILD_DB_SCHEMA, BUILD_DB_TEMPLATE, TEMPLATE, ConfigError, load_config, workflow_of
 
-EXIT_OK, EXIT_ERROR, EXIT_DUPLICATES, EXIT_INTERRUPTED = 0, 1, 3, 130
-ASSIGN_STAGES = ("update-ids", "filter", "trim", "blast", "assign-ids", "db-check", "hap-pa")
-BUILD_DB_STAGES = ("lookup", "flanks", "orient", "alleles", "duplicates", "finish")
+EXIT_OK, EXIT_ERROR, EXIT_USAGE, EXIT_DUPLICATES, EXIT_INTERRUPTED = 0, 1, 2, 3, 130
+
+ASSIGN_STAGE_HELP = {
+    "update-ids": "replace marker names with your standard IDs",
+    "filter": "keep alleles with enough reads in enough samples",
+    "trim": "remove adapters if reads run past the design length",
+    "blast": "align the kept alleles to the database",
+    "assign-ids": "reuse or issue IDs, then write the report and new database",
+    "db-check": "confirm each new ID has a sequence",
+    "hap-pa": "build the presence/absence tables",
+}
+BUILD_DB_STAGE_HELP = {
+    "lookup": "build the marker lookup table from the probe file",
+    "flanks": "fetch the sequence around each marker from the genome",
+    "orient": "find each marker's strand by aligning the MADC's amplicons",
+    "alleles": "cut allele_length bases for each Ref and Alt allele",
+    "duplicates": "remove markers with near-identical Ref alleles",
+    "finish": "write the database and count table as _v001",
+}
+ASSIGN_STAGES = tuple(ASSIGN_STAGE_HELP)
+BUILD_DB_STAGES = tuple(BUILD_DB_STAGE_HELP)
+
+DEBUG_HELP = "show the full Python error if something unexpected fails"
+
+# argparse keeps the line breaks in these, so tests/test_cli_help.py holds them to 80 columns
+MAIN_DESCRIPTION = """\
+hapapp-utils gives the alleles in MADC reports fixed IDs that stay the same
+from project to project. It keeps a versioned allele database for each panel
+and builds presence/absence tables from the results."""
+MAIN_EPILOG = """\
+typical workflow:
+  1. first database for a panel   init --workflow build-db, check, build-db
+  2. each project                 init, check, assign
+  3. redo tables (optional)       hap-pa, merge-pa
+
+Run 'hapapp-utils <command> --help' for a command's options.
+Documentation: https://hapapp.readthedocs.io"""
+INIT_DESCRIPTION = """\
+Write a settings file for assign or build-db. The file lists every setting.
+Optional settings start commented out at their default values."""
+CHECK_DESCRIPTION = """\
+Check the tools, inputs and settings for a run without running anything. The
+settings file's sections show whether it is for assign or build-db. A warning
+lets a run go ahead. A problem stops it, and check exits with code 1."""
+BUILD_DB_DESCRIPTION = """\
+Build a panel's first allele database from the reference genome. The tool takes
+the Ref and Alt alleles from the genome, because a MADC's sequences can contain
+IUPAC codes. It also writes the lookup table and count table that assign needs."""
+ASSIGN_DESCRIPTION = """\
+Turn a MADC into a report with fixed allele IDs, a new database version and
+presence/absence tables. The run copies its inputs into a new folder and works
+there, so your input database stays as it was."""
+HAP_PA_DESCRIPTION = """\
+Build presence/absence tables from a report with fixed allele IDs. The assign
+command does this as its last stage, so use hap-pa to redo the tables with
+another read threshold. It writes <report>_hapStatus.csv and <report>_hapPA.csv
+next to the report."""
+MERGE_PA_DESCRIPTION = """\
+Merge presence/absence matrices from several projects into one table. It keeps
+every allele, fills gaps with 0 and recounts Presence_count. The assign command
+can do this for you if you set inputs.previous_hap_pa."""
 
 
 def _build_parser():
-    parser = argparse.ArgumentParser(
-        prog="hapapp-utils",
-        description="Build and maintain microhaplotype databases from targeted genotyping reports.")
+    parser = argparse.ArgumentParser(prog="hapapp-utils", description=MAIN_DESCRIPTION, epilog=MAIN_EPILOG,
+                                     formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument("--version", action="version", version=f"hapapp-utils {__version__}")
-    parser.add_argument("--debug", action="store_true", help="show the full Python error if something unexpected fails")
-    commands = parser.add_subparsers(dest="command", required=True)
+    parser.add_argument("--debug", action="store_true", help=DEBUG_HELP)
+    # main() prints this help if no command is given, so the command is not required here
+    commands = parser.add_subparsers(dest="command", title="commands", metavar="<command>")
 
-    # The same option after the command. SUPPRESS stops the command's default from undoing a --debug given before it.
-    debug = argparse.ArgumentParser(add_help=False)
-    debug.add_argument("--debug", action="store_true", default=argparse.SUPPRESS,
-                       help="show the full Python error if something unexpected fails")
+    def add_command(name, summary, description, examples, stages=None):
+        sections = ["examples:\n" + "\n".join(f"  hapapp-utils {name} {example}" for example in examples)]
+        if stages:
+            sections.insert(0, "stages:\n" + "\n".join(f"  {stage:<12} {text}" for stage, text in stages.items()))
+        return commands.add_parser(name, help=summary, description=description,
+                                   epilog="\n\n".join(sections), formatter_class=argparse.RawDescriptionHelpFormatter)
 
-    init = commands.add_parser("init", parents=[debug], help="write a commented settings file to fill in")
-    init.add_argument("path", nargs="?", default="run.yaml", help="where to write it (default: run.yaml)")
+    def add_run_options(sub, config_help):
+        sub.add_argument("-c", "--config", required=True, metavar="FILE", help=config_help)
+        sub.add_argument("--set", dest="overrides", action="append", default=[], metavar="KEY=VALUE",
+                         help="change a setting for this run; use once per setting")
+        sub.add_argument("-o", "--outdir", metavar="DIR", help="output folder, in place of output.dir")
+
+    def add_stage_options(sub, stages):
+        sub.add_argument("--until", choices=stages, metavar="STAGE", help="stop after this stage")
+        sub.add_argument("-v", "--verbose", action="store_true",
+                         help="show each step's output on screen as well as in the process readme")
+
+    init = add_command("init", "write a commented settings file to fill in", INIT_DESCRIPTION,
+                       ["run.yaml", "build.yaml --workflow build-db"])
+    init.add_argument("path", nargs="?", default="run.yaml", help="file to write (default: run.yaml)")
     init.add_argument("--workflow", choices=("assign", "build-db"), default="assign",
-                      help="which command the settings are for (default: assign)")
+                      help="the command these settings are for (default: assign)")
     init.add_argument("--force", action="store_true", help="replace the file if it already exists")
 
-    def add_run_options(sub):
-        sub.add_argument("-c", "--config", required=True, help="settings file (YAML)")
-        sub.add_argument("--set", dest="overrides", action="append", default=[], metavar="KEY=VALUE",
-                         help="override a setting, e.g. --set filter.min_reads=30 (can be repeated)")
-        sub.add_argument("-o", "--outdir", help="output folder, replacing output.dir")
+    check = add_command("check", "check tools, inputs and settings without running anything", CHECK_DESCRIPTION,
+                        ["-c run.yaml", "-c run.yaml --set filter.min_reads=30",
+                         "-c build.yaml --set database.allele_length=120"])
+    add_run_options(check, "settings file (YAML) for assign or build-db")
 
-    check = commands.add_parser("check", parents=[debug], help="check tools, inputs and settings without running anything")
-    add_run_options(check)
+    build_db = add_command("build-db", "build a panel's first allele database from the reference genome",
+                           BUILD_DB_DESCRIPTION,
+                           ["-c build.yaml", "-c build.yaml --set database.allele_length=120",
+                            "-c build.yaml --until orient -o runs/orient_only"], BUILD_DB_STAGE_HELP)
+    add_run_options(build_db, "settings file (YAML); 'hapapp-utils init --workflow build-db' writes one")
+    add_stage_options(build_db, BUILD_DB_STAGES)
 
-    build_db = commands.add_parser("build-db", parents=[debug], help="build a panel's first allele database from the reference genome")
-    add_run_options(build_db)
-    build_db.add_argument("--until", choices=BUILD_DB_STAGES, help="stop after this stage")
-    build_db.add_argument("-v", "--verbose", action="store_true", help="also show each step's output, not only in the log")
+    assign = add_command("assign", "turn a MADC into fixed allele IDs and a new database version", ASSIGN_DESCRIPTION,
+                         ["-c run.yaml", "-c run.yaml --set filter.min_reads=30 -o runs/trial",
+                          "-c run.yaml --until filter -o runs/filter_only"], ASSIGN_STAGE_HELP)
+    add_run_options(assign, "settings file (YAML); 'hapapp-utils init' writes one")
+    add_stage_options(assign, ASSIGN_STAGES)
 
-    assign = commands.add_parser("assign", parents=[debug], help="turn a MADC into fixed allele IDs and a new database version")
-    add_run_options(assign)
-    assign.add_argument("--until", choices=ASSIGN_STAGES, help="stop after this stage")
-    assign.add_argument("-v", "--verbose", action="store_true", help="also show each step's output, not only in the log")
+    pa = add_command("hap-pa", "build presence/absence tables from a report with fixed IDs", HAP_PA_DESCRIPTION,
+                     ["--madc report.csv --descriptor PROJECT01 --min-reads 20"])
+    pa.add_argument("--madc", required=True, metavar="FILE",
+                    help="report with fixed allele IDs, without the Code_version column")
+    pa.add_argument("--descriptor", required=True, metavar="NAME", help="column name for this project in the matrix")
+    pa.add_argument("--min-reads", type=int, default=10, metavar="N", help="reads needed to count as present (default: 10)")
 
-    pa = commands.add_parser("hap-pa", parents=[debug], help="build presence/absence tables from a report with fixed allele IDs")
-    pa.add_argument("--madc", required=True, help="report with fixed allele IDs")
-    pa.add_argument("--descriptor", required=True, help="column name for this project in the matrix")
-    pa.add_argument("--min-reads", type=int, default=10, help="reads needed to count as present (default: 10)")
+    merge = add_command("merge-pa", "merge presence/absence matrices from several projects", MERGE_PA_DESCRIPTION,
+                        ["earlier_hapPA.csv this_hapPA.csv -o all_hapPA.csv"])
+    merge.add_argument("matrices", nargs="+", metavar="MATRIX", help="_hapPA.csv files or earlier merged matrices")
+    merge.add_argument("-o", "--output", required=True, metavar="FILE", help="merged matrix to write")
 
-    merge = commands.add_parser("merge-pa", parents=[debug], help="merge presence/absence matrices from several projects")
-    merge.add_argument("matrices", nargs="+", metavar="MATRIX", help="matrices to merge")
-    merge.add_argument("-o", "--output", required=True, help="merged matrix to write")
+    # The same option after the command. SUPPRESS stops the command's default from undoing a --debug given before it.
+    for sub in commands.choices.values():
+        sub.add_argument("--debug", action="store_true", default=argparse.SUPPRESS, help=DEBUG_HELP)
     return parser
 
 
@@ -169,8 +247,12 @@ def _cmd_merge_pa(args):
 
 
 def main(argv=None):
-    args = _build_parser().parse_args(argv)
-    handlers = {"init": _cmd_init, "check": _cmd_check, "build-db": _cmd_build_db, "assign": _cmd_assign,
+    parser = _build_parser()
+    args = parser.parse_args(argv)
+    if args.command is None:
+        parser.print_help(sys.stderr)
+        return EXIT_USAGE
+    handlers ={"init": _cmd_init, "check": _cmd_check, "build-db": _cmd_build_db, "assign": _cmd_assign,
                 "hap-pa": _cmd_hap_pa, "merge-pa": _cmd_merge_pa}
     try:
         return handlers[args.command](args)

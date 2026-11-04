@@ -13,7 +13,8 @@ hapapp-utils [--version] [--debug] <command> [options]
 | [`hap-pa`](hap-pa.md) | Build presence/absence tables from a report with fixed IDs |
 | [`merge-pa`](merge-pa.md) | Merge presence/absence matrices from several projects |
 
-Run `hapapp-utils <command> --help` to see a command's options.
+Run `hapapp-utils --help` for this list and a typical workflow. Run `hapapp-utils <command> --help` for a command's
+options, stages and examples.
 
 ## Options for every command
 
@@ -31,6 +32,6 @@ Run `hapapp-utils <command> --help` to see a command's options.
 |------|---------|
 | 0 | The command finished |
 | 1 | An error stopped the command |
-| 2 | The command line itself had a mistake |
+| 2 | The command line itself had a mistake, or you gave no command |
 | 3 | `assign` found the same sequence under different allele IDs in the MADC |
 | 130 | You interrupted the run |
