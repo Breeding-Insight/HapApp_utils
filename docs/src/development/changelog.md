@@ -33,7 +33,6 @@ These fixes also apply to the bash workflows.
 ### Changed
 
 - The `Code_version` column and report file name now say `v2`.
-- The license is now Apache 2.0 instead of MIT.
 - `FIRST_SAMPLE_COL` now reaches `step01` and `step05`.
 
 ### Added to the repository
