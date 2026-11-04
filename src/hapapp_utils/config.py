@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import difflib
 from pathlib import Path
 from types import SimpleNamespace
 
@@ -207,7 +208,12 @@ def load_config(path, overrides=(), outdir=None, schema=None):
 
     unknown = sorted(set(supplied) - set(schema))
     if unknown:
-        raise ConfigError(f"Unknown setting(s): {', '.join(unknown)}. Valid settings: {', '.join(schema)}")
+        described = []
+        for key in unknown:
+            close = difflib.get_close_matches(key, schema, n=1)
+            described.append(f"{key} (did you mean {close[0]}?)" if close else key)
+        raise ConfigError(f"Unknown setting(s): {', '.join(described)}. "
+                          "Run hapapp-utils init to see the valid settings, or read docs/cli.md.")
 
     values = {}
     missing = []

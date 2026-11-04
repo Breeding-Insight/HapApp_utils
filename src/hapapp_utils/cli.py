@@ -9,7 +9,7 @@ from pathlib import Path
 from . import __version__
 from .config import BUILD_DB_SCHEMA, BUILD_DB_TEMPLATE, TEMPLATE, ConfigError, load_config, workflow_of
 
-EXIT_OK, EXIT_ERROR, EXIT_DUPLICATES = 0, 1, 3
+EXIT_OK, EXIT_ERROR, EXIT_DUPLICATES, EXIT_INTERRUPTED = 0, 1, 3, 130
 ASSIGN_STAGES = ("update-ids", "filter", "trim", "blast", "assign-ids", "db-check", "hap-pa")
 BUILD_DB_STAGES = ("lookup", "flanks", "orient", "alleles", "duplicates", "finish")
 
@@ -19,6 +19,7 @@ def _build_parser():
         prog="hapapp-utils",
         description="Build and maintain microhaplotype databases from targeted genotyping reports.")
     parser.add_argument("--version", action="version", version=f"hapapp-utils {__version__}")
+    parser.add_argument("--debug", action="store_true", help="show the full Python error if something unexpected fails")
     commands = parser.add_subparsers(dest="command", required=True)
 
     init = commands.add_parser("init", help="write a commented settings file to fill in")
@@ -85,9 +86,18 @@ def _cmd_check(args):
     return EXIT_ERROR if problems else EXIT_OK
 
 
+def _require_workflow(path, wanted):
+    """Stop early with a clear message if a settings file is for the other command."""
+    if Path(path).is_file() and workflow_of(path) != wanted:
+        other = "assign" if wanted == "build-db" else "build-db"
+        raise ConfigError(f"{path} holds settings for {other}, not {wanted}. Run hapapp-utils {other} with it, "
+                          f"or start a settings file with: hapapp-utils init --workflow {wanted}")
+
+
 def _cmd_build_db(args):
     from .workflows.build_db import run_build_db
 
+    _require_workflow(args.config, "build-db")
     cfg = load_config(args.config, args.overrides, args.outdir, BUILD_DB_SCHEMA)
     summary = run_build_db(cfg, until=args.until, verbose=args.verbose, command=" ".join(sys.argv))
     print(f"\n{summary['status'].capitalize()}. Results are in {cfg.output.dir}")
@@ -116,6 +126,7 @@ def _cmd_build_db(args):
 def _cmd_assign(args):
     from .workflows.assign import run_assign
 
+    _require_workflow(args.config, "assign")
     cfg = load_config(args.config, args.overrides, args.outdir)
     summary = run_assign(cfg, until=args.until, verbose=args.verbose, command=" ".join(sys.argv))
     print(f"\n{summary['status'].capitalize()}. Results are in {cfg.output.dir}")
@@ -174,4 +185,11 @@ def main(argv=None):
             print(f"[ERROR] {err}\nSee the .readme file in the output folder's versions folder for details.",
                   file=sys.stderr)
             return EXIT_ERROR
-        raise
+        if args.debug:
+            raise
+        print(f"[ERROR] Something unexpected went wrong: {type(err).__name__}: {err}\n"
+              "Run again with hapapp-utils --debug to see the full Python error.", file=sys.stderr)
+        return EXIT_ERROR
+    except KeyboardInterrupt:
+        print("\n[STOPPED] Interrupted. The output folder holds a partial run.", file=sys.stderr)
+        return EXIT_INTERRUPTED

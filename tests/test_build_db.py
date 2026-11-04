@@ -15,7 +15,7 @@ import yaml
 from hapapp_utils.cli import BUILD_DB_STAGES, EXIT_ERROR, EXIT_OK, main
 from hapapp_utils.config import BUILD_DB_SCHEMA, BUILD_DB_TEMPLATE, ConfigError, load_config, workflow_of
 from hapapp_utils.fasta import fetch_subsequences, iter_fasta, read_lengths
-from hapapp_utils.probe_design import _cell_text, read_probe_rows, write_probe_csv
+from hapapp_utils.probe_design import _cell_text, probe_row_problem, read_probe_rows, write_probe_csv
 from hapapp_utils.steps.core_db import (
     db00_prep_lut_from_probeDesign as prepare_lookup,
     db02_update_snpID_in_madc_v1 as update_ids,
@@ -323,6 +323,26 @@ def test_core_database_feeds_assign(build_data, tmp_path, capsys):
 
 
 @requires_tools
+def test_reads_shorter_than_the_allele_length_are_extended_from_the_genome(tmp_path):
+    full = make_build_dataset(tmp_path / "full")
+    assert build(full) == EXIT_OK
+    short = make_build_dataset(tmp_path / "short")
+    lines = short.madc.read_text().splitlines(keepends=True)
+    rewritten = []
+    for line in lines:
+        cells = line.split(",")
+        if "|" in cells[0]:
+            cells[2], cells[3] = cells[2][:81], cells[3][:81]
+        rewritten.append(",".join(cells))
+    short.madc.write_text("".join(rewritten))
+    assert build(short) == EXIT_OK
+    # Every read is now 81 bp, but both strands, indels and all, the alleles come out as before
+    assert database(short) == database(full)
+    assert {len(sequence) for name, sequence in database(short).items()
+            if name.split("|")[0] not in ("Chr01_000002000", "Chr01_000002500")} == {AMPLICON}
+
+
+@requires_tools
 def test_renamed_genome_needs_no_chromosome_map(tmp_path):
     with_map = make_build_dataset(tmp_path / "mapped")
     renamed = make_build_dataset(tmp_path / "renamed", use_genome_names=True)
@@ -398,10 +418,37 @@ def test_build_db_template_is_valid(tmp_path):
     assert workflow_of(path) == "build-db"
 
 
-def test_assign_settings_are_rejected_by_build_db(dataset, capsys):
+def test_settings_for_the_other_command_are_explained(dataset, build_data, capsys):
     assert workflow_of(dataset.config) == "assign"
     assert main(["build-db", "-c", str(dataset.config)]) == EXIT_ERROR
-    assert "Unknown setting" in capsys.readouterr().err
+    assert "holds settings for assign, not build-db" in capsys.readouterr().err
+    assert main(["assign", "-c", str(build_data.config)]) == EXIT_ERROR
+    assert "holds settings for build-db, not assign" in capsys.readouterr().err
+
+
+@requires_tools
+@pytest.mark.parametrize("edit,message", [
+    (lambda d: d.genome.write_bytes(b"\x1f\x8b\x08\x00" + bytes(range(128, 255))), "inputs.genome is not a text file"),
+    (lambda d: d.genome.write_text(""), "inputs.genome has no FASTA records"),
+    (lambda d: (d.folder / "probe.xlsx").write_text("not really excel"), "could not be read as an Excel file"),
+    (lambda d: d.madc.write_bytes(bytes(range(128, 255))), "PROJECT_MADC.csv is not a text file"),
+], ids=["gzipped_genome", "empty_genome", "corrupt_excel", "binary_madc"])
+def test_bad_inputs_get_a_message_before_starting(build_data, edit, message, capsys):
+    edit(build_data)
+    assert build(build_data) == EXIT_ERROR
+    captured = capsys.readouterr()
+    assert message in captured.err
+    assert "Traceback" not in captured.err
+    assert not build_data.outdir.exists()
+
+
+@requires_tools
+def test_extended_reads_are_reported_before_starting(build_data, capsys):
+    rows = [line.split(",", 4) for line in build_data.madc.read_text().splitlines(keepends=True)]
+    build_data.madc.write_text("".join(
+        ",".join(row[:2] + [row[2][:81]] + row[3:]) if row[0].count("|") else ",".join(row) for row in rows))
+    assert main(["check", "-c", str(build_data.config)]) == EXIT_OK
+    assert "Reads of 81 bp will be extended from the genome to 109 bp alleles" in capsys.readouterr().out
 
 
 def test_duplicate_thresholds_are_validated(build_data):
@@ -495,9 +542,39 @@ def test_probe_reader_needs_a_header(tmp_path):
 
 def test_probe_reader_needs_enough_columns(tmp_path):
     path = tmp_path / "probe.csv"
-    path.write_text("Marker Name,Seq\nm1,SEQ\n")
+    path.write_text(",".join(PROBE_HEADER) + "\nm1,SEQ\n")
     with pytest.raises(ValueError, match="fewer than"):
         read_probe_rows(path)
+
+
+def test_probe_reader_rejects_other_spreadsheets(tmp_path):
+    # The marker selection sheet also has a MarkerName column, but not the probe columns
+    path = tmp_path / "selection.xlsx"
+    write_sheet(path, [["MarkerName", "Chrom", "ChromPosPhysical", "ChromPosGenetic", "Quality", "ComboQuality", "EssentialMarker"],
+                       ["m1", "Chr01", 100, None, 2, 6.9, "NO"]])
+    with pytest.raises(ValueError, match="does not look like a DArT probe design file"):
+        read_probe_rows(path)
+
+
+def test_probe_reader_explains_a_corrupt_excel_file(tmp_path):
+    path = tmp_path / "probe.xlsx"
+    path.write_text("not really excel")
+    with pytest.raises(ValueError, match="could not be read as an Excel file"):
+        read_probe_rows(path)
+
+
+def test_probe_reader_explains_the_old_excel_format(tmp_path):
+    path = tmp_path / "probe.xls"
+    path.write_bytes(b"\xd0\xcf\x11\xe0")
+    with pytest.raises(ValueError, match="older Excel format"):
+        read_probe_rows(path)
+
+
+def test_probe_rows_are_checked_before_db00_reads_them():
+    good = ["m1", "SEQ", "g", "Chr01", "100", "[T/A]", "SNP"]
+    assert probe_row_problem(good) is None
+    assert "position" in probe_row_problem(good[:4] + ["abc"] + good[5:])
+    assert "variant" in probe_row_problem(good[:5] + ["T/A"] + good[6:])
 
 
 def test_commas_inside_cells_do_not_shift_columns(tmp_path):

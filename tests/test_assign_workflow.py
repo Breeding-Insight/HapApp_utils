@@ -9,8 +9,9 @@ from pathlib import Path
 import pandas as pd
 import pytest
 
-from hapapp_utils.checks import minted_ids_missing_from_fasta, read_fasta_ids
+from hapapp_utils.checks import minted_ids_missing_from_fasta
 from hapapp_utils.cli import EXIT_DUPLICATES, EXIT_ERROR, EXIT_OK, main
+from hapapp_utils.workflows import assign as assign_workflow
 
 from conftest import MARKERS, SAMPLES, make_dataset, requires_blast, requires_cutadapt
 
@@ -131,6 +132,102 @@ def test_three_column_madc_keeps_every_sample(tmp_path):
     assert_expected_alleles(frame)
 
 
+def replace_with_bytes(path):
+    path.write_bytes(bytes(range(128, 255)))
+
+
+def without_marker(data, marker):
+    lines = data.allele_db.read_text().splitlines(keepends=True)
+    data.allele_db.write_text("".join(a + b for a, b in zip(lines[::2], lines[1::2]) if marker not in a))
+
+
+@pytest.mark.parametrize("edit,message", [
+    (lambda d: replace_with_bytes(d.madc), "is not a text file"),
+    (lambda d: d.madc.write_text("a,b,c\n1,2,3\n"), "no header row starting with AlleleID"),
+    (lambda d: d.lookup.write_text(""), "None of the MADC's markers are in the lookup table"),
+    (lambda d: d.lookup.write_text("other,Chr99_1\n"), "None of the MADC's markers are in the lookup table"),
+    (lambda d: d.lookup.write_text(d.lookup.read_text() + "\n"), "but line 4 does not"),
+    (lambda d: replace_with_bytes(d.lookup), "inputs.marker_lut is not a text file"),
+    (lambda d: without_marker(d, MARKERS[0]), "1 of 3 markers have no Ref_0001 and Alt_0002"),
+    (lambda d: d.allele_db.write_text(">Chr99_1|Ref_0001\nACGT\n"), "3 of 3 markers have no Ref_0001 and Alt_0002"),
+    (lambda d: d.allele_db.write_text(""), "inputs.allele_db has no FASTA records"),
+    (lambda d: replace_with_bytes(d.allele_db), "inputs.allele_db is not a text file"),
+    (lambda d: d.match_counts.write_text("not a count\tabc\n"), "Could not read inputs.match_counts"),
+], ids=["binary_madc", "other_csv", "empty_lookup", "unmatched_lookup", "blank_lookup_line", "binary_lookup",
+        "database_missing_marker", "database_from_other_panel", "empty_database", "binary_database", "bad_count_table"])
+def test_bad_inputs_get_a_message_before_starting(dataset, edit, message, capsys):
+    edit(dataset)
+    assert run(dataset) == EXIT_ERROR
+    captured = capsys.readouterr()
+    assert message in captured.err
+    assert "Traceback" not in captured.err
+    assert "[1/7]" not in captured.out
+    assert not dataset.outdir.exists()
+
+
+def test_first_sample_column_in_the_summary_columns_is_refused(dataset, capsys):
+    assert run(dataset, "--set", "panel.first_sample_column=5") == EXIT_ERROR
+    assert "are summary columns, not samples" in capsys.readouterr().err
+
+
+def test_output_folder_that_is_a_file_is_refused(dataset, tmp_path, capsys):
+    target = tmp_path / "a_file"
+    target.write_text("x")
+    assert run(dataset, "-o", str(target)) == EXIT_ERROR
+    assert "Output folder is a file" in capsys.readouterr().err
+
+
+@pytest.mark.skipif(os.geteuid() == 0, reason="root can write anywhere")
+def test_output_folder_without_permission_is_refused(dataset, tmp_path, capsys):
+    locked = tmp_path / "locked"
+    locked.mkdir()
+    locked.chmod(0o500)
+    try:
+        assert run(dataset, "-o", str(locked / "out")) == EXIT_ERROR
+        assert "no permission" in capsys.readouterr().err
+    finally:
+        locked.chmod(0o700)
+
+
+def test_report_with_the_wrong_sample_count_stops_the_run(dataset, monkeypatch, capsys):
+    original = assign_workflow.assign_ids.main
+
+    def wrong_column(argv):
+        argv[argv.index("--read_col") + 1] = "5"
+        original(argv)
+
+    monkeypatch.setattr(assign_workflow.assign_ids, "main", wrong_column)
+    assert run(dataset) == EXIT_ERROR
+    assert f"sample columns but the MADC has {len(SAMPLES)}" in capsys.readouterr().err
+    assert manifest(dataset)["status"] == "failed"
+
+
+def test_a_crash_inside_a_step_names_the_step_and_logs_the_details(dataset, monkeypatch, capsys):
+    def crash(*args):
+        raise KeyError("boom")
+
+    monkeypatch.setattr(assign_workflow.assign_ids, "get_db_allele_fasta", crash)
+    assert run(dataset) == EXIT_ERROR
+    captured = capsys.readouterr()
+    assert "step05_parse_madc_matchAlleles_blastn stopped with KeyError" in captured.err
+    assert "Traceback" not in captured.err
+    readme = (dataset.outdir / manifest(dataset)["process_readme"]).read_text()
+    assert "Traceback" in readme and "boom" in readme
+
+
+def test_unexpected_errors_are_summarized_unless_debugging(dataset, monkeypatch, capsys):
+    def crash(cfg):
+        raise RuntimeError("boom")
+
+    monkeypatch.setattr(assign_workflow, "preflight", crash)
+    assert run(dataset) == EXIT_ERROR
+    captured = capsys.readouterr()
+    assert "Something unexpected went wrong: RuntimeError: boom" in captured.err
+    assert "--debug" in captured.err
+    with pytest.raises(RuntimeError):
+        main(["--debug", "assign", "-c", str(dataset.config)])
+
+
 def test_a_used_output_folder_is_refused(dataset, capsys):
     assert run(dataset) == EXIT_OK
     assert run(dataset) == EXIT_ERROR
@@ -150,8 +247,6 @@ def test_a_trial_run_leaves_earlier_results_alone(dataset, tmp_path):
 
 
 def test_new_ids_without_sequences_stop_the_run(dataset, monkeypatch, capsys):
-    from hapapp_utils.workflows import assign as assign_workflow
-
     monkeypatch.setattr(assign_workflow, "minted_ids_missing_from_fasta", lambda *paths: ["M|Other_0001"])
     assert run(dataset) == EXIT_ERROR
     assert "no sequence" in capsys.readouterr().err

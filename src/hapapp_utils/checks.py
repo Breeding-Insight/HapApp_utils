@@ -3,16 +3,18 @@
 from __future__ import annotations
 
 import math
+import os
 import re
 from collections import Counter
 from dataclasses import dataclass
 
 from .fasta import read_lengths
-from .madc import read_layout, read_marker_ids
-from .probe_design import read_probe_rows
+from .madc import longest_ref_read, read_layout, read_marker_ids
+from .probe_design import probe_row_problem, read_probe_rows
 from .tools import BUILD_DB_TOOLS, required_tools, tool_version
 
 OK, WARNING, PROBLEM = "ok", "warning", "problem"
+NOT_TEXT_ADVICE = "Save it as plain text or CSV, and decompress it if it is gzipped."
 
 
 @dataclass
@@ -63,6 +65,16 @@ def counted_ids_missing_from_fasta(counts_path, fasta_path):
             if f"{key}_{serial:04d}" not in fasta_ids]
 
 
+def _text_lines(path, setting, findings):
+    """A text input's lines, or None with a problem recorded if it is not text."""
+    try:
+        with open(path, encoding="utf-8-sig") as handle:
+            return handle.read().splitlines()
+    except UnicodeDecodeError:
+        findings.append(Finding(PROBLEM, f"{setting} is not a text file: {path}. {NOT_TEXT_ADVICE}"))
+        return None
+
+
 def _check_tools(tools, findings):
     for tool in tools:
         version = tool_version(tool)
@@ -80,7 +92,8 @@ def _check_inputs_exist(cfg, findings):
         if path.is_file():
             findings.append(Finding(OK, f"inputs.{name}: {path}"))
         else:
-            findings.append(Finding(PROBLEM, f"inputs.{name} not found: {path}"))
+            reason = "is a folder, not a file" if path.exists() else "not found"
+            findings.append(Finding(PROBLEM, f"inputs.{name} {reason}: {path}"))
             all_found = False
     return all_found
 
@@ -92,14 +105,24 @@ def _check_madc(cfg, findings):
         findings.append(Finding(PROBLEM, str(err)))
         return None
 
-    n_samples = len(layout.samples)
-    first_column = cfg.panel.first_sample_column or layout.first_sample_column
+    detected = layout.first_sample_column
+    chosen = cfg.panel.first_sample_column
+    first_column = chosen or detected
+    n_samples = len(layout.samples) + detected - first_column
     findings.append(Finding(OK, f"MADC: {n_samples} samples, first sample in column {first_column}"))
-    if n_samples == 0:
+    if n_samples <= 0:
         findings.append(Finding(PROBLEM, "MADC header has no sample columns"))
-    if cfg.panel.first_sample_column and cfg.panel.first_sample_column != layout.first_sample_column:
-        findings.append(Finding(WARNING, f"panel.first_sample_column is {cfg.panel.first_sample_column}, "
-                                         f"but the header suggests {layout.first_sample_column}"))
+    if chosen and chosen < detected:
+        findings.append(Finding(PROBLEM, f"panel.first_sample_column is {chosen}, but columns up to {detected - 1} of "
+                                         "the MADC header are summary columns, not samples. Remove this setting to "
+                                         "detect the column automatically."))
+    elif chosen and chosen > detected:
+        findings.append(Finding(WARNING, f"panel.first_sample_column is {chosen}, but the header suggests {detected}, "
+                                         f"so the first {chosen - detected} sample column(s) will be left out"))
+    read_length = longest_ref_read(cfg.inputs.madc)
+    if read_length and read_length != cfg.panel.sequencing_length:
+        findings.append(Finding(WARNING, f"panel.sequencing_length is {cfg.panel.sequencing_length}, "
+                                         f"but the MADC's Ref alleles are {read_length} bp"))
     repeated = sorted(name for name, count in Counter(layout.samples).items() if count > 1)
     if repeated:
         findings.append(Finding(WARNING, f"Repeated sample names will get a numeric suffix: {repeated[:5]}"))
@@ -111,34 +134,64 @@ def _check_madc(cfg, findings):
 
 
 def _check_lookup_table(cfg, findings):
-    with open(cfg.inputs.marker_lut, encoding="utf-8-sig") as handle:
-        rows = [line.rstrip("\r\n").split(",") for line in handle]
-    rows = [row for row in rows if len(row) >= 2]
-    old_ids = {row[0] for row in rows}
-    new_ids = {row[1] for row in rows}
+    """Check the lookup table. Returns the new IDs of the markers this run will use, or None."""
+    lines = _text_lines(cfg.inputs.marker_lut, "inputs.marker_lut", findings)
+    if lines is None:
+        return None
+    too_short = [number for number, line in enumerate(lines, 1) if len(line.split(",")) < 2]
+    if too_short:
+        findings.append(Finding(PROBLEM, f"inputs.marker_lut needs at least two comma-separated columns, but line "
+                                         f"{too_short[0]} does not ({len(too_short)} such line(s), blank lines count)"))
+        return None
+    rows = [line.split(",") for line in lines]
+    new_id_of = {row[0]: row[1] for row in rows}
 
-    not_in_lookup = sorted(read_marker_ids(cfg.inputs.madc) - old_ids)
+    madc_markers = read_marker_ids(cfg.inputs.madc)
+    in_lookup = madc_markers & set(new_id_of)
+    if not in_lookup:
+        findings.append(Finding(PROBLEM, f"None of the MADC's markers are in the lookup table. Its first column should "
+                                         f"hold the MADC's marker names, such as {sorted(madc_markers)[:1]}."))
+        return None
+    not_in_lookup = sorted(madc_markers - in_lookup)
     if not_in_lookup:
         findings.append(Finding(WARNING, f"{len(not_in_lookup)} MADC marker(s) are not in the lookup table "
                                          f"and will be dropped: {not_in_lookup[:5]}"))
     column = cfg.panel.insert_size_column
     if column and (not rows or column not in rows[0]):
         findings.append(Finding(PROBLEM, f"panel.insert_size_column {column!r} is not in the lookup table header"))
+
+    tags = set()
     if cfg.inputs.dup_tags:
-        with open(cfg.inputs.dup_tags, encoding="utf-8-sig") as handle:
-            tags = {line.strip() for line in handle if line.strip()}
-        if not tags:
+        tag_lines = _text_lines(cfg.inputs.dup_tags, "inputs.dup_tags", findings)
+        tags = {line.strip() for line in tag_lines or [] if line.strip()}
+        if tag_lines is not None and not tags:
             findings.append(Finding(WARNING, "inputs.dup_tags is empty, so no markers will be removed"))
-        unknown = sorted(tags - new_ids)
+        unknown = sorted(tags - set(new_id_of.values()))
         if unknown:
             findings.append(Finding(WARNING, f"{len(unknown)} marker(s) in inputs.dup_tags are not in the "
                                              f"lookup table's new IDs, so nothing removes them: {unknown[:5]}"))
+    return {new_id_of[marker] for marker in in_lookup} - tags
 
 
-def _check_database(cfg, findings):
+def _check_database(cfg, findings, marker_ids):
     if not re.search(r"_v\d{1,3}(?=[_.]|$)", cfg.inputs.allele_db.name, flags=re.IGNORECASE):
         findings.append(Finding(WARNING, f"{cfg.inputs.allele_db.name} has no version tag such as _v003, "
                                          "so a new database would be named _v001"))
+    try:
+        fasta_ids = read_fasta_ids(cfg.inputs.allele_db)
+    except UnicodeDecodeError:
+        findings.append(Finding(PROBLEM, f"inputs.allele_db is not a text file: {cfg.inputs.allele_db}. {NOT_TEXT_ADVICE}"))
+        return
+    if not fasta_ids:
+        findings.append(Finding(PROBLEM, f"inputs.allele_db has no FASTA records: {cfg.inputs.allele_db}"))
+        return
+    if marker_ids is not None:
+        missing = sorted(marker for marker in marker_ids
+                         if f"{marker}|Ref_0001" not in fasta_ids or f"{marker}|Alt_0002" not in fasta_ids)
+        if missing:
+            findings.append(Finding(PROBLEM, f"{len(missing)} of {len(marker_ids)} markers have no Ref_0001 and "
+                                             f"Alt_0002 allele in inputs.allele_db, such as {missing[:3]}. Use the "
+                                             "database built for this panel, or list these markers in inputs.dup_tags."))
     try:
         gaps = counted_ids_missing_from_fasta(cfg.inputs.match_counts, cfg.inputs.allele_db)
     except ValueError as err:
@@ -153,8 +206,18 @@ def _check_database(cfg, findings):
 
 def _check_output_folder(cfg, findings):
     outdir = cfg.output.dir
-    if outdir.exists() and any(outdir.iterdir()):
-        findings.append(Finding(PROBLEM, f"Output folder is not empty: {outdir}"))
+    if outdir.exists():
+        if not outdir.is_dir():
+            findings.append(Finding(PROBLEM, f"Output folder is a file: {outdir}"))
+            return
+        if any(outdir.iterdir()):
+            findings.append(Finding(PROBLEM, f"Output folder is not empty: {outdir}"))
+            return
+        nearest = outdir
+    else:
+        nearest = next(parent for parent in outdir.parents if parent.exists())
+    if not os.access(nearest, os.W_OK):
+        findings.append(Finding(PROBLEM, f"Cannot write to the output folder {outdir}: no permission in {nearest}"))
     else:
         findings.append(Finding(OK, f"Output folder: {outdir}"))
 
@@ -166,8 +229,9 @@ def preflight(cfg):
     layout = None
     if _check_inputs_exist(cfg, findings):
         layout = _check_madc(cfg, findings)
-        _check_lookup_table(cfg, findings)
-        _check_database(cfg, findings)
+        if layout is not None:
+            marker_ids = _check_lookup_table(cfg, findings)
+            _check_database(cfg, findings, marker_ids)
     _check_output_folder(cfg, findings)
     return findings, layout
 
@@ -199,13 +263,29 @@ def _check_probe_and_genome(cfg, findings):
     if not used:
         findings.append(Finding(PROBLEM, "No marker is in both the probe design file and the MADC"))
         return
+    row_problems = [problem for problem in map(probe_row_problem, used) if problem]
+    if row_problems:
+        findings.append(Finding(PROBLEM, f"{len(row_problems)} marker(s) in the probe design file cannot be used: "
+                                         f"{row_problems[0]}"))
     not_in_probe = sorted(madc_markers - {row[0] for row in rows})
     if not_in_probe:
         findings.append(Finding(WARNING, f"{len(not_in_probe)} MADC marker(s) are not in the probe design "
                                          f"file and will be left out: {not_in_probe[:5]}"))
 
-    names = read_chromosome_map(cfg.inputs.chromosome_map)
-    genome = read_lengths(cfg.inputs.genome)
+    try:
+        names = read_chromosome_map(cfg.inputs.chromosome_map)
+    except UnicodeDecodeError:
+        findings.append(Finding(PROBLEM, f"inputs.chromosome_map is not a text file: {cfg.inputs.chromosome_map}. "
+                                         f"{NOT_TEXT_ADVICE}"))
+        return
+    try:
+        genome = read_lengths(cfg.inputs.genome)
+    except UnicodeDecodeError:
+        findings.append(Finding(PROBLEM, f"inputs.genome is not a text file: {cfg.inputs.genome}. {NOT_TEXT_ADVICE}"))
+        return
+    if not genome:
+        findings.append(Finding(PROBLEM, f"inputs.genome has no FASTA records: {cfg.inputs.genome}"))
+        return
     chromosomes = sorted({row[3] for row in used})
     unmatched = [name for name in chromosomes if names.get(name, name) not in genome]
     if unmatched:
@@ -216,10 +296,16 @@ def _check_probe_and_genome(cfg, findings):
         findings.append(Finding(OK, f"Genome: {len(genome)} sequences, including all {len(chromosomes)} "
                                     "chromosomes these markers use"))
 
-    if cfg.database.flank_length < cfg.database.allele_length:
+    length = cfg.database.allele_length
+    if cfg.database.flank_length < length:
         findings.append(Finding(WARNING, f"database.flank_length {cfg.database.flank_length} is shorter than "
-                                         f"database.allele_length {cfg.database.allele_length}, "
-                                         "so some alleles may be cut short"))
+                                         f"database.allele_length {length}, so some alleles may be cut short"))
+    read_length = longest_ref_read(cfg.inputs.madc)
+    if read_length and read_length < length:
+        findings.append(Finding(OK, f"Reads of {read_length} bp will be extended from the genome to {length} bp alleles"))
+    elif read_length > length:
+        findings.append(Finding(WARNING, f"database.allele_length {length} is shorter than the MADC's "
+                                         f"{read_length} bp Ref alleles, so alleles will be shorter than the reads"))
 
 
 def preflight_build_db(cfg):

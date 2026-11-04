@@ -22,18 +22,33 @@ class MadcLayout:
 def read_layout(path):
     """Find the header row and work out which column the samples start in."""
     filler_columns = 0
+    try:
+        with open(path, encoding="utf-8-sig") as handle:
+            for line in handle:
+                cells = line.rstrip("\r\n").split(",")
+                if cells[0] == "*" and not filler_columns:
+                    filler_columns = cells.count("*")
+                if cells[0] == "AlleleID":
+                    for required in ("CloneID", "AlleleSequence"):
+                        if required not in cells:
+                            raise ValueError(f"{path}: header row has no {required} column")
+                    first = next((i for i, name in enumerate(cells) if name not in METADATA_COLUMNS), len(cells))
+                    return MadcLayout(first + 1, cells[first:], filler_columns)
+    except UnicodeDecodeError as err:
+        raise ValueError(f"{path} is not a text file. Export the MADC as a .csv file, not Excel, "
+                         "and decompress it if it is gzipped.") from err
+    raise ValueError(f"{path}: no header row starting with AlleleID. Is this a MADC report?")
+
+
+def longest_ref_read(path):
+    """The length of the longest Ref allele in the report, or 0 if it has none."""
+    longest = 0
     with open(path, encoding="utf-8-sig") as handle:
         for line in handle:
-            cells = line.rstrip("\r\n").split(",")
-            if cells[0] == "*" and not filler_columns:
-                filler_columns = cells.count("*")
-            if cells[0] == "AlleleID":
-                for required in ("CloneID", "AlleleSequence"):
-                    if required not in cells:
-                        raise ValueError(f"{path}: header row has no {required} column")
-                first = next((i for i, name in enumerate(cells) if name not in METADATA_COLUMNS), len(cells))
-                return MadcLayout(first + 1, cells[first:], filler_columns)
-    raise ValueError(f"{path}: no header row starting with AlleleID")
+            cells = line.split(",", 3)
+            if len(cells) > 2 and cells[0].endswith("|Ref"):
+                longest = max(longest, len(cells[2]))
+    return longest
 
 
 def read_marker_ids(path):

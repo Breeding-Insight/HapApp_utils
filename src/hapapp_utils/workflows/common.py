@@ -9,13 +9,14 @@ import os
 import platform
 import sys
 import time
+import traceback
 from datetime import datetime
 
 import yaml
 
 from .. import __version__
 from ..config import config_to_dict
-from ..tools import tool_version
+from ..tools import ToolError, tool_version
 
 BLAST_COLUMNS = "6 qseqid qlen qstart qend sseqid slen sstart send length qcovs pident evalue"
 
@@ -61,12 +62,16 @@ def _sha256(path):
 
 
 def call_step(step, argv):
-    """Run a step's main(), turning its argument errors into a normal failure."""
+    """Run a step's main(), turning any failure into a message that names the step."""
+    name = step.__name__.rsplit(".", 1)[-1]
     try:
         step.main(argv)
     except SystemExit as err:
         if err.code not in (0, None):
-            raise PipelineError(f"{step.__name__} stopped with code {err.code}: {argv}") from err
+            raise PipelineError(f"{name} stopped with code {err.code}: {argv}") from err
+    except Exception as err:
+        traceback.print_exc()
+        raise PipelineError(f"{name} stopped with {type(err).__name__}: {err}") from err
 
 
 def _write_readme_header(log, run, manifest, outdir):
@@ -93,7 +98,10 @@ def run_stages(cfg, run, stages, schema, tools, details=None, until=None, verbos
     """
     console = console or sys.stdout
     outdir = cfg.output.dir
-    outdir.mkdir(parents=True, exist_ok=True)
+    try:
+        outdir.mkdir(parents=True, exist_ok=True)
+    except OSError as err:
+        raise CannotStart(f"Cannot create the output folder {outdir}: {err.strerror}") from err
     (outdir / "resolved_config.yaml").write_text(yaml.safe_dump(config_to_dict(cfg, schema), sort_keys=False))
     manifest = {
         "hapapp_utils_version": __version__,
@@ -138,9 +146,15 @@ def run_stages(cfg, run, stages, schema, tools, details=None, until=None, verbos
                     manifest["outputs"] = {key: value for key, value in run.outputs().items()
                                            if value and os.path.exists(value)}
                     manifest["counts"] = run.counts_summary()
+            except KeyboardInterrupt:
+                manifest["status"] = "interrupted"
+                print("[STOPPED] Interrupted by the user", file=log)
+                raise
             except Exception as err:
                 manifest["status"] = "failed"
                 manifest["error"] = str(err)
+                if not isinstance(err, (PipelineError, ToolError)):
+                    traceback.print_exc(file=log)
                 print(f"[ERROR] {err}", file=log)
                 raise
     finally:

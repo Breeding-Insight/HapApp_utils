@@ -184,6 +184,32 @@ def test_preflight_passes_on_good_inputs(dataset):
     assert PROBLEM not in levels and WARNING not in levels and OK in levels
 
 
+def test_preflight_stops_a_first_sample_column_inside_the_summary_columns(dataset):
+    levels, messages = levels_and_messages(load_config(dataset.config, ["panel.first_sample_column=5"]))
+    assert PROBLEM in levels and "are summary columns, not samples" in messages
+
+
+def test_preflight_warns_when_the_first_sample_column_skips_samples(dataset):
+    levels, messages = levels_and_messages(load_config(dataset.config, ["panel.first_sample_column=18"]))
+    assert PROBLEM not in levels and WARNING in levels
+    assert "the first 1 sample column(s) will be left out" in messages
+
+
+def test_preflight_warns_about_the_wrong_sequencing_length(dataset):
+    levels, messages = levels_and_messages(load_config(dataset.config, ["panel.sequencing_length=150", "panel.design_length=150"]))
+    assert WARNING in levels and "the MADC's Ref alleles are 109 bp" in messages
+
+
+def test_unknown_setting_suggests_the_closest_one(dataset):
+    with pytest.raises(ConfigError, match=r"filter.min_read \(did you mean filter.min_reads\?\)"):
+        load_config(dataset.config, ["filter.min_read=30"])
+
+
+def test_preflight_reports_a_folder_given_as_an_input(dataset):
+    levels, messages = levels_and_messages(load_config(dataset.config, [f"inputs.madc={dataset.folder}"]))
+    assert PROBLEM in levels and "is a folder, not a file" in messages
+
+
 def test_preflight_reports_a_missing_input(dataset):
     dataset.madc.unlink()
     levels, messages = levels_and_messages(load_config(dataset.config))

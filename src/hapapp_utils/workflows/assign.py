@@ -51,9 +51,10 @@ class DuplicateAllelesFound(PipelineError):
 class _AssignRun:
     """One run. Paths are relative to the run folder, as the steps expect to rewrite them."""
 
-    def __init__(self, cfg, first_sample_col):
+    def __init__(self, cfg, first_sample_col, n_samples):
         self.cfg = cfg
         self.first_sample_col = str(first_sample_col)
+        self.n_samples = n_samples
         self.report = f"report/{cfg.inputs.madc.stem}.csv"
         self.lut = f"lut/{cfg.inputs.marker_lut.name}"
         self.db = f"versions/{cfg.inputs.allele_db.stem}.fa"
@@ -199,6 +200,12 @@ class _AssignRun:
             "--allele-type-ground-truth", cfg.blast.allele_type_truth,
         ])
         self.madc_cleaned = self.final_report
+        with open(self.final_report) as handle:
+            header = handle.readline().strip().split(",")
+        samples = len(header) - header.index("AlleleSequence") - 1
+        if samples != self.n_samples:
+            raise PipelineError(f"The report has {samples} sample columns but the MADC has {self.n_samples}. "
+                                f"Its columns start {header[3:6]}, so the first sample column may be wrong.")
 
     def stage_db_check(self):
         new_db = assign_ids.bump_version_tag(self.db)
@@ -299,6 +306,7 @@ def run_assign(cfg, until=None, verbose=False, command=None, console=None):
     if problems:
         raise CannotStart("Cannot start:\n  " + "\n  ".join(problems))
     first_sample_col = cfg.panel.first_sample_column or layout.first_sample_column
-    details = {"first_sample_column": first_sample_col, "samples": len(layout.samples)}
-    return run_stages(cfg, _AssignRun(cfg, first_sample_col), STAGES, SCHEMA, required_tools(cfg), details,
+    n_samples = len(layout.samples) + layout.first_sample_column - first_sample_col
+    details = {"first_sample_column": first_sample_col, "samples": n_samples}
+    return run_stages(cfg, _AssignRun(cfg, first_sample_col, n_samples), STAGES, SCHEMA, required_tools(cfg), details,
                       until=until, verbose=verbose, command=command, console=console)
