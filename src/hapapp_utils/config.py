@@ -55,7 +55,7 @@ BUILD_DB_SCHEMA = {
 
 TEMPLATE = """\
 # Settings for: hapapp-utils assign -c this_file.yaml
-# Relative paths are resolved from the folder holding this file.
+# Relative paths start from the folder holding this file.
 
 project_id: MY_PROJECT
 
@@ -69,14 +69,14 @@ inputs:
 
 panel:
   design_length: 109
-  sequencing_length: 109                   # adapters are trimmed if this exceeds design_length
+  sequencing_length: 109                   # the tool trims adapters if this exceeds design_length
   # first_sample_column: 17                # detected from the MADC header unless set here
   # insert_size_column: insert_size        # column in marker_lut, for mixed insert size panels
   # adapter: ACCGATCTG
 
 filter:
   # Keep an allele if this many samples each have at least min_reads reads.
-  # min_samples is lowered to 5% of the samples (rounded up) if that is smaller.
+  # The tool lowers min_samples to 5% of the samples (rounded up) if that is smaller.
   # min_samples: 10
   # min_reads: 2
 
@@ -97,7 +97,7 @@ output:
 
 BUILD_DB_TEMPLATE = """\
 # Settings for: hapapp-utils build-db -c this_file.yaml
-# Relative paths are resolved from the folder holding this file.
+# Relative paths start from the folder holding this file.
 
 inputs:
   probe_design: probe_design.xlsx          # the DArT template, as .xlsx, .csv or tab-delimited .txt
@@ -106,7 +106,7 @@ inputs:
   # chromosome_map: chromosome_names.csv   # probe name,genome name; if the genome names differ
 
 database:
-  name: species_allele_db                  # the first version is written as species_allele_db_v001.fa
+  name: species_allele_db                  # the first version becomes species_allele_db_v001.fa
   allele_length: 109                       # can be longer than the reads, to allow for longer reads later
   # flank_length: 150                      # bases fetched either side of each marker
   # dup_min_identity: 0.95                 # markers with Ref alleles this similar count as duplicates
