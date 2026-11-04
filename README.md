@@ -1,7 +1,7 @@
 # HapApp_utils
 
-[![License: Apache 2.0](https://img.shields.io/badge/License-Apache_2.0-blue.svg)](https://github.com/Breeding-Insight/HapApp_utils/blob/master/LICENSE)
-[![Tests](https://github.com/Breeding-Insight/HapApp_utils/actions/workflows/tests.yml/badge.svg)](https://github.com/Breeding-Insight/HapApp_utils/actions/workflows/tests.yml)
+[![License: Apache 2.0](https://img.shields.io/badge/License-Apache_2.0-blue.svg)](https://github.com/Breeding-Insight/HapApp_utils/blob/release/LICENSE)
+[![Tests](https://github.com/Breeding-Insight/HapApp_utils/actions/workflows/tests.yml/badge.svg?branch=release)](https://github.com/Breeding-Insight/HapApp_utils/actions/workflows/tests.yml?query=branch%3Arelease)
 [![Documentation](https://img.shields.io/badge/docs-readthedocs-blue.svg)](https://hapapp.readthedocs.io)
 
 **Fixed microhaplotype IDs and versioned allele databases for targeted genotyping panels.**
@@ -33,7 +33,7 @@ project then adds to the same database.
 It is not on PyPI or Bioconda yet, so install it from source:
 
 ```bash
-git clone https://github.com/Breeding-Insight/HapApp_utils.git
+git clone -b release https://github.com/Breeding-Insight/HapApp_utils.git
 cd HapApp_utils
 pip install .
 ```
@@ -166,4 +166,4 @@ authors directed the work, reviewed and tested the results, and are ultimately r
 
 ## License
 
-[Apache License 2.0](https://github.com/Breeding-Insight/HapApp_utils/blob/master/LICENSE)
+[Apache License 2.0](https://github.com/Breeding-Insight/HapApp_utils/blob/release/LICENSE)

@@ -14,7 +14,7 @@ default-theme = "light"
 preferred-dark-theme = "navy"
 additional-css = ["theme/breeding-insight.css"]
 git-repository-url = "https://github.com/Breeding-Insight/HapApp_utils"
-edit-url-template = "https://github.com/Breeding-Insight/HapApp_utils/edit/master/docs/{path}"
+edit-url-template = "https://github.com/Breeding-Insight/HapApp_utils/edit/release/docs/{path}"
 site-url = "/"
 
 [output.html.fold]

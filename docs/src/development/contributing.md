@@ -5,7 +5,7 @@ Bug reports, documentation fixes and code are all welcome.
 ## Set up
 
 ```bash
-git clone https://github.com/Breeding-Insight/HapApp_utils.git
+git clone -b release https://github.com/Breeding-Insight/HapApp_utils.git
 cd HapApp_utils
 
 python3 -m venv .venv
@@ -15,6 +15,59 @@ pip install -e ".[test]"
 
 With an editable install, the `hapapp-utils` command runs your working copy. You also need BLAST+ and MMseqs2 for
 the workflow tests. See [Installation](../getting-started/installation.md).
+
+## Branches
+
+The repository has two long-lived branches:
+
+| Branch | What it holds | Where the code lives |
+|--------|---------------|----------------------|
+| `master` | The step scripts and bash workflows. Dongyan Zhao maintains this branch | `scripts/`, `workflow/` |
+| `release` | The same steps and workflows, plus the `hapapp-utils` package, its tests and this documentation | `src/hapapp_utils/`, `workflow/`, `tests/`, `docs/` |
+
+Base a change to the command, the tests or this documentation on `release`. Base a change to a step script or bash
+workflow on `master`, and it reaches `release` at the next merge. Releases to PyPI and Bioconda will come from tags on
+`release`.
+
+`master` has no tests of its own, so GitHub Actions tests its changes once they merge into `release`.
+
+### Merge `master` into `release`
+
+Merges go one way. Merging `release` into `master` would bring the whole package layout with it.
+
+```bash
+git switch release
+git merge master
+```
+
+Git follows the moved files, so most edits to existing scripts land in `src/hapapp_utils/steps/` with no conflict.
+These changes need more from you:
+
+| Change on `master` | What Git does | What to do |
+|--------------------|---------------|------------|
+| A new option in a bash workflow | Merges it with no conflict, but the command does not get the option | [Add a setting](#add-a-setting) and pass it to the step |
+| A new argument at the end of a script's list | Reports a conflict at `parse_args` | Keep the new argument and `parse_args(argv)`, then add a setting if the command needs it |
+| A new script | Reports `CONFLICT (file location)` and puts the file in the new folder | Run `git add` on the file, then [add a step](#add-a-step) |
+| An edit to the README | Reports a conflict, because `release` has its own README | Keep the `release` text, and copy over anything it lacks |
+
+A clean merge does not mean the command has the change, because the command passes its own settings to the steps. After
+each merge, read what changed in the bash workflows, then run the tests:
+
+```bash
+git diff ORIG_HEAD HEAD -- workflow/
+pytest
+```
+
+### Send a fix to `master`
+
+A fix on `release` can go to `master` as a cherry-pick. Git follows the moved files, so most fixes apply cleanly:
+
+```bash
+git switch master
+git cherry-pick -x <commit>
+```
+
+The next merge into `release` can then report a conflict on those lines. Keep the copy on `release`.
 
 ## Run the tests
 
@@ -41,9 +94,9 @@ wrong example fails the tests. It also holds the help to 80 columns.
 
 ## Change a step
 
-Edit the module in `src/hapapp_utils/steps/`. Keep its functions and arguments stable, because the workflows and
-the bash scripts call them. Mark a behavior change with a `#### CHANGE:` comment that says why, as the existing code
-does.
+On `release`, edit the module in `src/hapapp_utils/steps/`. On `master`, the same script lives under `scripts/`. Keep
+its functions and arguments stable, because the workflows and the bash scripts call them. Mark a behavior change with
+a `#### CHANGE:` comment that says why, as the existing code does.
 
 Changes that touch alleles or read counts need a check on real data. A refactor should reproduce saved results byte
 for byte:

@@ -15,7 +15,7 @@ design length.
 The package is not on PyPI or Bioconda yet.
 
 ```bash
-git clone https://github.com/Breeding-Insight/HapApp_utils.git
+git clone -b release https://github.com/Breeding-Insight/HapApp_utils.git
 cd HapApp_utils
 pip install .
 ```
