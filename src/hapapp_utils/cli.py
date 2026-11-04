@@ -22,7 +22,12 @@ def _build_parser():
     parser.add_argument("--debug", action="store_true", help="show the full Python error if something unexpected fails")
     commands = parser.add_subparsers(dest="command", required=True)
 
-    init = commands.add_parser("init", help="write a commented settings file to fill in")
+    # The same option after the command. SUPPRESS stops the command's default from undoing a --debug given before it.
+    debug = argparse.ArgumentParser(add_help=False)
+    debug.add_argument("--debug", action="store_true", default=argparse.SUPPRESS,
+                       help="show the full Python error if something unexpected fails")
+
+    init = commands.add_parser("init", parents=[debug], help="write a commented settings file to fill in")
     init.add_argument("path", nargs="?", default="run.yaml", help="where to write it (default: run.yaml)")
     init.add_argument("--workflow", choices=("assign", "build-db"), default="assign",
                       help="which command the settings are for (default: assign)")
@@ -34,25 +39,25 @@ def _build_parser():
                          help="override a setting, e.g. --set filter.min_reads=30 (can be repeated)")
         sub.add_argument("-o", "--outdir", help="output folder, replacing output.dir")
 
-    check = commands.add_parser("check", help="check tools, inputs and settings without running anything")
+    check = commands.add_parser("check", parents=[debug], help="check tools, inputs and settings without running anything")
     add_run_options(check)
 
-    build_db = commands.add_parser("build-db", help="build a panel's first allele database from the reference genome")
+    build_db = commands.add_parser("build-db", parents=[debug], help="build a panel's first allele database from the reference genome")
     add_run_options(build_db)
     build_db.add_argument("--until", choices=BUILD_DB_STAGES, help="stop after this stage")
     build_db.add_argument("-v", "--verbose", action="store_true", help="also show each step's output, not only in the log")
 
-    assign = commands.add_parser("assign", help="turn a MADC into fixed allele IDs and a new database version")
+    assign = commands.add_parser("assign", parents=[debug], help="turn a MADC into fixed allele IDs and a new database version")
     add_run_options(assign)
     assign.add_argument("--until", choices=ASSIGN_STAGES, help="stop after this stage")
     assign.add_argument("-v", "--verbose", action="store_true", help="also show each step's output, not only in the log")
 
-    pa = commands.add_parser("hap-pa", help="build presence/absence tables from a report with fixed allele IDs")
+    pa = commands.add_parser("hap-pa", parents=[debug], help="build presence/absence tables from a report with fixed allele IDs")
     pa.add_argument("--madc", required=True, help="report with fixed allele IDs")
     pa.add_argument("--descriptor", required=True, help="column name for this project in the matrix")
     pa.add_argument("--min-reads", type=int, default=10, help="reads needed to count as present (default: 10)")
 
-    merge = commands.add_parser("merge-pa", help="merge presence/absence matrices from several projects")
+    merge = commands.add_parser("merge-pa", parents=[debug], help="merge presence/absence matrices from several projects")
     merge.add_argument("matrices", nargs="+", metavar="MATRIX", help="matrices to merge")
     merge.add_argument("-o", "--output", required=True, help="merged matrix to write")
     return parser

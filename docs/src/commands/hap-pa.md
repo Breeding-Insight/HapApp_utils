@@ -28,6 +28,7 @@ It writes two files next to the input report:
 | `--madc` | required | Report with fixed allele IDs, without the `Code_version` column |
 | `--descriptor` | required | Column name for this project in the matrix |
 | `--min-reads` | 10 | Reads needed to count as present |
+| `--debug` | off | Show the full Python error if something unexpected fails |
 
 ## Example
 

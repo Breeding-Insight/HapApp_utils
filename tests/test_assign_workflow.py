@@ -310,8 +310,9 @@ def test_unexpected_errors_are_summarized_unless_debugging(dataset, monkeypatch,
     captured = capsys.readouterr()
     assert "Something unexpected went wrong: RuntimeError: boom" in captured.err
     assert "--debug" in captured.err
-    with pytest.raises(RuntimeError):
-        main(["--debug", "assign", "-c", str(dataset.config)])
+    for command in (["--debug", "assign", "-c", str(dataset.config)], ["assign", "-c", str(dataset.config), "--debug"]):
+        with pytest.raises(RuntimeError):
+            main(command)
 
 
 def test_a_used_output_folder_is_refused(dataset, capsys):

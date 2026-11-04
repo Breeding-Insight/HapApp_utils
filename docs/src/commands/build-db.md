@@ -37,6 +37,7 @@ match the genome, or when the amplicon does not align to its flank. A warning li
 | `-o`, `--outdir` | Output folder, replacing `output.dir` |
 | `--until` | Stop after this stage: `lookup`, `flanks`, `orient`, `alleles`, `duplicates` or `finish` |
 | `-v`, `--verbose` | Also show each step's output on screen, as well as in the process readme |
+| `--debug` | Show the full Python error if something unexpected fails |
 
 ## Settings
 

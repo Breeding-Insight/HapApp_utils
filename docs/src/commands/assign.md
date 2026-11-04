@@ -34,6 +34,7 @@ The run copies its inputs into a new folder and works there, so your input datab
 | `-o`, `--outdir` | Output folder, replacing `output.dir` |
 | `--until` | Stop after this stage: `update-ids`, `filter`, `trim`, `blast`, `assign-ids`, `db-check` or `hap-pa` |
 | `-v`, `--verbose` | Also show each step's output on screen, as well as in the process readme |
+| `--debug` | Show the full Python error if something unexpected fails |
 
 ## Settings
 

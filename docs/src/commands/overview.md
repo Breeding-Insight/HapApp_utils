@@ -22,7 +22,8 @@ Run `hapapp-utils <command> --help` to see a command's options.
 | `--version` | Print the version and stop |
 | `--debug` | Show the full Python error if something unexpected fails |
 
-These options go before the command, as in `hapapp-utils --debug assign -c run.yaml`.
+`--version` goes before the command. `--debug` can go before or after it, so `hapapp-utils --debug assign -c run.yaml` and
+`hapapp-utils assign -c run.yaml --debug` do the same thing.
 
 ## Exit codes
 

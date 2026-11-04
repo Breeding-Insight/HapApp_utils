@@ -28,6 +28,7 @@ You can merge an earlier merged matrix again. The tool recounts `Presence_count`
 |----------|-------------|
 | `matrices` | The `_hapPA.csv` files or earlier merged matrices to merge |
 | `-o`, `--output` | The merged matrix to write (required) |
+| `--debug` | Show the full Python error if something unexpected fails |
 
 ## Example
 

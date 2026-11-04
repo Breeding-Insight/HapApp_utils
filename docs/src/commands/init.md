@@ -15,6 +15,7 @@ hapapp-utils init [path] [--workflow {assign,build-db}] [--force]
 | `path` | `run.yaml` | Where to write the file |
 | `--workflow` | `assign` | Which command the settings are for: `assign` or `build-db` |
 | `--force` | off | Replace the file if it already exists |
+| `--debug` | off | Show the full Python error if something unexpected fails |
 
 ## Examples
 

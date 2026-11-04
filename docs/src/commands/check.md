@@ -41,6 +41,7 @@ Each line reports `ok`, `WARNING` or `PROBLEM`. A warning lets the run go ahead.
 | `-c`, `--config` | Settings file (required) |
 | `--set` | Override a setting, as `KEY=VALUE`. You can repeat this option |
 | `-o`, `--outdir` | Output folder, replacing `output.dir` |
+| `--debug` | Show the full Python error if something unexpected fails |
 
 ## Example
 
