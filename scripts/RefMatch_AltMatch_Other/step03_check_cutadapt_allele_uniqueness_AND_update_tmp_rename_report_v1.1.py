@@ -87,9 +87,8 @@ def put_81bp_ref_alt_allele_seq_in_dict(refAlt_81bp):
     return(refAlt_81bp_allele_dict)
 
 def remove_duplicate_alleles_in_cutadapt_fasta(cutadapt_fasta, remove_alleles):
-    import subprocess
-    cmd = 'grep -c ">" ' + cutadapt_fasta
-    total_seq = subprocess.check_output(cmd, shell=True).strip().decode('ascii')
+    with open(cutadapt_fasta) as counted:
+        total_seq = sum(1 for line in counted if line.startswith('>'))
     inp = open(cutadapt_fasta)
     outp = open(cutadapt_fasta.replace('.fa', '_unique.fa'), 'w')
     line = inp.readline()
@@ -132,7 +131,8 @@ def update_tmp_rename_report(tmp_rename_report, remove_alleles, df_concat, refAl
     df = df.set_index('AlleleID')
     # Remove duplicated alleles
     df = df.drop(remove_alleles)
-    df.update(df_concat, overwrite=True)
+    if df_concat is not None:
+        df.update(df_concat, overwrite=True)
     df_update = df.sort_index()
 
     # Update allele sequence: ref and alt to 81 bp and match alleles removing adapter sequence
@@ -167,6 +167,20 @@ def update_tmp_rename_report(tmp_rename_report, remove_alleles, df_concat, refAl
             else:
                 pass
 
+        # Keep any remaining allele classes, such as "Other", after the RefMatch
+        # and AltMatch alleles. They match none of the tests above, so without
+        # this loop the reindex() below drops them from the updated report.
+        for i in idx_sorted:
+            if i != ref and i != alt and 'RefMatch' not in i and 'AltMatch' not in i:
+                index_ordered.append(i)
+
+    #### CHANGE: reindex silently drops rows it is not given and invents rows for IDs
+    #### that do not exist, so stop here instead of losing alleles without warning.
+    dropped = df_update.index.difference(index_ordered)
+    invented = pd.Index(index_ordered).difference(df_update.index)
+    if len(dropped) > 0 or len(invented) > 0:
+        raise ValueError(f'Reordering the report changed its rows. Dropped: {list(dropped)[:5]} '
+                         f'({len(dropped)} total). Invented: {list(invented)[:5]} ({len(invented)} total).')
     df_ordered = df_update.reindex(index_ordered, axis=0)
     outf = tmp_rename_report.replace('.csv', '_updatedSeq.csv')
     df_ordered.to_csv(outf)
@@ -206,3 +220,9 @@ if __name__ == '__main__':
         update_tmp_rename_report(args.tmp_rename_report, remove_alleles, df_concat, refAlt_81bp_allele_dict, cutadapt_uni_allele_dict)
     else:
         print('\n  # No duplicate microhaplotypes found in:', args.cutadapt_fasta)
+        #### CHANGE: still write the trimmed sequences. Skipping this sent step05 the
+        #### untrimmed report, so database alleles kept their adapter sequence even
+        #### though BLAST had queried the trimmed FASTA.
+        cutadapt_uni_allele_dict = remove_duplicate_alleles_in_cutadapt_fasta(args.cutadapt_fasta, remove_alleles)
+        refAlt_81bp_allele_dict = put_81bp_ref_alt_allele_seq_in_dict(args.refAlt_81bp)
+        update_tmp_rename_report(args.tmp_rename_report, remove_alleles, None, refAlt_81bp_allele_dict, cutadapt_uni_allele_dict)
