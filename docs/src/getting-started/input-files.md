@@ -11,6 +11,10 @@ from the header row:
 
 Each marker needs a `Ref` and an `Alt` row. Export the report as CSV, not Excel.
 
+The MADC report can come straight from DArT genotyping, or you can generate one from FASTQ files with
+[MADCATS](https://madcats.readthedocs.io). [What is a MADC file?](https://softwarehub.breedinginsight.org/learn/what-is-a-madc-file.html)
+explains the format.
+
 ```text
 AlleleID,CloneID,AlleleSequence,5236,5237,...
 Chr01_000120735|Ref,Chr01_000120735,GGTGATGAGTGGAGTT...,0,12,...

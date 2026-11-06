@@ -130,6 +130,10 @@ The full documentation is at [hapapp.readthedocs.io](https://hapapp.readthedocs.
 | Marker lookup table | `assign` | CSV of the MADC's marker names and your standard marker IDs. `build-db` writes one |
 | Allele database and count table | `assign` | The latest versions from `build-db` or an earlier `assign` run |
 
+The MADC report can come straight from DArT genotyping, or you can generate one from FASTQ files with
+[MADCATS](https://madcats.readthedocs.io). [What is a MADC file?](https://softwarehub.breedinginsight.org/learn/what-is-a-madc-file.html)
+explains the format.
+
 ## Output
 
 `assign` writes these files to the run's folder:
@@ -143,6 +147,10 @@ The full documentation is at [hapapp.readthedocs.io](https://hapapp.readthedocs.
 | `hapSearch/hapPA/*_hapPA.csv` | Which alleles this project contains |
 | `hapSearch/sample_hapStatus/*_hapStatus.csv` | Which samples contain each allele |
 | `run_manifest.json` | Status, counts, warnings, tool versions and input checksums |
+
+To turn the report with fixed allele IDs into a VCF, see
+[Convert MADC data to a genotype-called VCF](https://softwarehub.breedinginsight.org/learn/madc-to-vcf.html), which uses
+[BIGr](https://softwarehub.breedinginsight.org/software/bigr.html).
 
 ## Development
 
@@ -161,9 +169,6 @@ If you use HapApp_utils in your work, please cite:
 > Zhao D, Lin M, Taniguti CH, Sandercock AM, et al. (2026). Standardized microhaplotype databases and frameworks for
 > assessing and mining crop genetic diversity. *Theoretical and Applied Genetics* 139(9):244.
 > https://doi.org/10.1007/s00122-026-05340-4
-
-For the MADC format, see Breeding Insight's
-[What is a MADC file?](https://softwarehub.breedinginsight.org/learn/what-is-a-madc-file.html).
 
 **AI assistance:** AI assistance applies to version 2 of HapApp_utils and its documentation, not to version 1. Dongyan
 Zhao wrote version 1, the step scripts and bash workflows. For version 2, Claude Opus 5.5 (Anthropic) helped convert those
