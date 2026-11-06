@@ -10,14 +10,10 @@
 Installing the package also installs cutadapt, which `assign` uses when reads run past the panel's
 design length.
 
-## From source
-
-The package is not on PyPI or Bioconda yet.
+## From PyPI
 
 ```bash
-git clone -b release https://github.com/Breeding-Insight/HapApp_utils.git
-cd HapApp_utils
-pip install .
+pip install hapapp-utils
 ```
 
 Then install the external programs with one of these commands:
@@ -28,6 +24,17 @@ conda install -c conda-forge -c bioconda blast mmseqs2
 
 ```bash
 brew install blast mmseqs2
+```
+
+## From source
+
+To install the latest code on the `release` branch, clone it and install the package, then add the external programs
+as above:
+
+```bash
+git clone -b release https://github.com/Breeding-Insight/HapApp_utils.git
+cd HapApp_utils
+pip install .
 ```
 
 ## Check the installation

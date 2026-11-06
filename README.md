@@ -30,15 +30,13 @@ project then adds to the same database.
 ## Installation
 
 `hapapp-utils` needs Python 3.10 or newer and BLAST+. The `build-db` command also needs MMseqs2.
-It is not on PyPI or Bioconda yet, so install it from source:
+Install it from PyPI:
 
 ```bash
-git clone -b release https://github.com/Breeding-Insight/HapApp_utils.git
-cd HapApp_utils
-pip install .
+pip install hapapp-utils
 ```
 
-Install the external tools with conda or Homebrew:
+Then install the external tools with conda or Homebrew:
 
 ```bash
 conda install -c conda-forge -c bioconda blast mmseqs2
@@ -49,6 +47,14 @@ brew install blast mmseqs2
 ```
 
 `hapapp-utils check` tells you if it cannot find a tool.
+
+To install from source instead:
+
+```bash
+git clone -b release https://github.com/Breeding-Insight/HapApp_utils.git
+cd HapApp_utils
+pip install .
+```
 
 ## Quick Start
 
