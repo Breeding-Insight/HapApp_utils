@@ -35,10 +35,16 @@ tags on `release` that publish the package.
 
 Merges go one way. Merging `release` into `master` would bring the whole package layout with it.
 
+`release` only accepts pull requests, so make the merge on a new branch and open a pull request from it into `release`:
+
 ```bash
-git switch release
-git merge master
+git fetch upstream
+git switch -c merge-master upstream/release
+git merge upstream/master
 ```
+
+Merge that pull request with **Create a merge commit**. A squash merge would lose the link to `master`, so the next
+merge would report the same conflicts again.
 
 Git follows the moved files, so most edits to existing scripts land in `src/hapapp_utils/steps/` with no conflict.
 These changes need more from you:
@@ -138,7 +144,7 @@ come from the Breeding Insight palette.
 Pushing a version tag from `release` publishes the package to PyPI through `.github/workflows/release.yml`.
 
 1. Set `__version__` in `src/hapapp_utils/__init__.py` and add the version to the [Changelog](changelog.md).
-2. Merge that change into `release`.
+2. Merge that change into `release` with a pull request.
 3. Tag the merged commit and push the tag, using the new version number:
 
 ```bash
