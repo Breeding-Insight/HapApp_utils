@@ -43,6 +43,9 @@ ALLELE_DB_DIR='./HapApp_utils/data'
 ALLELE_DB='species_allele_db_v001.fa'
 MATCH_CNT='species_allele_db_v001_matchCnt_lut.txt'
 
+# For panels with Ref/Alt alleles swapped
+# Uncomment the following line and provide a file containing the marker IDs that need to have their Ref/Alt alleles flipped
+#FLIP_REF_ALT=""
 
 # Parameters
 REF_LEN=81 # Often to prepare Ref and Alt alleles longer than the amplicon length to accommodate for future longer amplicons
@@ -54,6 +57,12 @@ printf "%s\n" "$now"
 printf "\n --- Scripts, files, and parameters used ---\n"
 printf "# Report: $REPORT\n"
 
+if [[ -v FLIP_REF_ALT ]]; then
+    printf "\n# 0). Update markers whose Ref/Alt alleles are swapped in the MADC file"
+    REPORT_FLIP_REF_ALT="${REPORT%????}_flipRefAlt.csv"
+    python3 "$SCRIPTS_DIR/db01_flip_refAlt_in_raw_MADC.py" "$FLIP_REF_ALT" "$REPORT"
+    REPORT="$REPORT_FLIP_REF_ALT"
+fi
 
 # =======
 # Prepare flanking sequences from the reference genome

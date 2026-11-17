@@ -22,13 +22,17 @@ exec > >(tee "$PROCESS_README") 2>&1
 # Scripts and files
 CUTADAPT_PATH="/Library/Frameworks/Python.framework/Versions/3.9/bin/cutadapt"
 SCRIPTS_DIR='/Users/dongyan.zhao/PycharmProjects/BI/HapApp_utils/scripts/RefMatch_AltMatch_Other'
-CODE_VER='v1'
+CODE_VER='v2'
 
 MARKERID_LUT='/Users/dongyan.zhao/PycharmProjects/BI/HapApp_utils/data/hemp_test/lut/DArTag_Submission_Hemp_20260224_snpID_lut.csv'
 ALLELE_DB_DIR='/Users/dongyan.zhao/PycharmProjects/BI/HapApp_utils/data/hemp_test/versions'
 ALLELE_DB='hemp_allele_db_v003.fa'
 MATCHCNT_LUT='hemp_allele_db_v003_matchCnt_lut.txt'
 REPORT='/Users/dongyan.zhao/PycharmProjects/BI/HapApp_utils/data/hemp_test/report/DHe25-10560_MADC.csv'
+
+# For panels with Ref/Alt alleles swapped
+# Uncomment the following line and provide a file containing the marker IDs that need to have their Ref/Alt alleles flipped
+#FLIP_REF_ALT=""
 
 # First sample column in the MADC file, which is the first column of sample read counts
 FIRST_SAMPLE_COL=17
@@ -98,13 +102,18 @@ printf "# Panel design length: $DESIGN_LEN\n"
 printf "# Sequencing length: $SEQ_LEN\n"
 printf '# BLAST filtering thresholds: %s%% coverage, %s%% identity\n' "$COV" "$IDEN"
 
+if [[ -v FLIP_REF_ALT ]]; then
+    printf "\n# 0a). Update markers whose Ref/Alt alleles are swapped in the MADC file"
+    REPORT_FLIP_REF_ALT="${REPORT%????}_flipRefAlt.csv"
+    python3 "$SCRIPTS_DIR/db01_flip_refAlt_in_raw_MADC.py" "$FLIP_REF_ALT" "$REPORT"
+    REPORT="$REPORT_FLIP_REF_ALT"
+fi
 
 
 printf "\n# 0). Update snpIDs to Chr_00xxxxxxx format in MADC"
 printf "\n  # This is necessary because marker IDs do not always follow the Chr_00xxxxxxx format\n"
 REPORT_SNPID="${REPORT%????}_snpID.csv"
 python3 "$SCRIPTS_DIR/step00_madc_update_snpID_v1.1.py" "$MARKERID_LUT" "$REPORT"
-
 
 
 # Remove duplicate tags and keep only unique tags
