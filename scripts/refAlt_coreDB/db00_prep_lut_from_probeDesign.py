@@ -17,6 +17,7 @@ Features:
 • Progress messages prefix with [INFO].
 """
 
+import os
 from typing import Optional
 
 
@@ -81,7 +82,7 @@ def get_panel_marker_ids(madc_path, probe):
         print('[INFO] Number of identical Ref and Alt sequences: ', len(refAlt_identical))
 
     madc_markers_rmDup = []
-    outp = open(probe.replace('.txt', '_dup.csv').replace('.csv', '_dup.csv'), 'w')
+    outp = open(os.path.splitext(probe)[0] + '_dup.csv', 'w')
     dup_cnt = 0
     for key, value in panel_markers.items():
         if len(value) > 2:
@@ -130,10 +131,13 @@ def prepare_lut(probe_path: str, panel_markers: Optional[list]) -> int:
 
     Returns the number of entries written.
     """
-    out_path = probe_path.replace('.txt', '_snpID_lut.csv').replace('.csv', '_snpID_lut.csv')
+    #### CHANGE: a .txt probe was named <probe>_snpID_lut_snpID_lut.csv and written with
+    #### tabs, which the later steps could not find or read. The lookup table is now
+    #### always comma-delimited and named <probe>_snpID_lut.csv.
+    out_path = os.path.splitext(probe_path)[0] + '_snpID_lut.csv'
     delimiter = '\t' if probe_path.endswith('.txt') else ','
 
-    write_lut_header(out_path, delimiter)
+    write_lut_header(out_path, ',')
 
     entry_count = 0
     with open(probe_path, 'r', encoding='utf-8-sig') as probe_fp,\
@@ -165,7 +169,7 @@ def prepare_lut(probe_path: str, panel_markers: Optional[list]) -> int:
 
             # Write the row
             out_fp.write(
-                delimiter.join([marker_id, bi_marker_id, chrom,
+                ','.join([marker_id, bi_marker_id, chrom,
                                 pos, ref, alt, var_type,
                                 indel_pos, priority, note]) + '\n'
             )

@@ -79,7 +79,7 @@ FLANK_SFETCH=${SNPID_LUT%????}'_f'$FLANK_LEN'bp_sfetchKeys.txt'
 
 
 printf '\n# 4). Fetch flanking sequences'
-esl-sfetch --index REF_GENOME
+esl-sfetch --index "$REF_GENOME"
 FLANK_SEQ=${SNPID_LUT%????}'_f'$FLANK_LEN'bp_sfetchKeys.fa'
 esl-sfetch -Cf $REF_GENOME $FLANK_SFETCH > $FLANK_SEQ
 
@@ -96,7 +96,7 @@ makeblastdb -in $REF_ALT_FLANK -dbtype nucl
 
 printf '\n# 6). Extract amplicon sequences of Ref and Alt alleles from MADC report\n'
 python3 $SCRIPTS_DIR/db03_ext_ref_alt_amp_from_madc_v1.py $REPORT_ID
-REF_ALT=${REPORT%????}'_ref_alt_amplicons.fa'
+REF_ALT=${REPORT_ID%????}'_ref_alt_amplicons.fa'
 
 
 

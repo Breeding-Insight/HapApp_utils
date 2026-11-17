@@ -72,12 +72,15 @@ def output_fasta(report, match_fasta, split_by_dict):
 
 
 
-def extract_RefMatch_AltMatch(data_col_index, miss_count, retained_count, alleles, min_samples, min_reads, line_array):
+def extract_RefMatch_AltMatch(data_col_index, sample_col_index, miss_count, retained_count, alleles, min_samples, min_reads, line_array):
     """Extract RefMatch and AltMatch alleles based on threshold criteria."""
 
     # Safely parse read count columns into floats, skip non-numeric entries
+    #### CHANGE: count reads from the sample columns only. data_col_index also
+    #### includes the MADC summary columns, and AvgCountRef/AvgCountSnp were
+    #### being counted as samples that passed the read threshold.
     read_count_list = []
-    for val in line_array[data_col_index:]:
+    for val in line_array[sample_col_index:]:
         try:
             read_count_list.append(float(val))
         except ValueError:
@@ -112,7 +115,7 @@ def extract_RefMatch_AltMatch(data_col_index, miss_count, retained_count, allele
 
 
 
-def process_madc(report, min_samples, min_reads):
+def process_madc(report, min_samples, min_reads, first_sample_col=None):
     """Main processing function for MADC report."""
     match_fasta = {}
     with open(report, encoding='utf-8-sig') as inp, \
@@ -126,6 +129,9 @@ def process_madc(report, min_samples, min_reads):
         outp_log.write(f'[INFO] ## Processing {report}\n\n')
 
         data_col_index = None
+        #### CHANGE: separate from data_col_index, which still decides the columns
+        #### kept in the temporary report (step05 removes the summary columns).
+        sample_col_index = first_sample_col - 1 if first_sample_col else None
 
         for line in inp:
             line_array = line.strip().split(',')
@@ -133,9 +139,13 @@ def process_madc(report, min_samples, min_reads):
             # Special rows prior to header
             if line_array[0] == '':
                 data_col_index = line_array.count('')
+                if not first_sample_col:
+                    sample_col_index = data_col_index
 
             elif line_array[0] == '*':
                 data_col_index = line_array.count('*')
+                if not first_sample_col:
+                    sample_col_index = data_col_index
 
             elif line_array[0] == 'AlleleID':
                 # Set data_col_index to AFTER AlleleSequence column in header
@@ -143,7 +153,9 @@ def process_madc(report, min_samples, min_reads):
                     data_col_index = line_array.index('AlleleSequence') + 1
                 else:
                     data_col_index = 3
-                min_samples = min(min_samples, math.ceil(len(line_array[data_col_index:]) * 0.05))
+                if sample_col_index is None:
+                    sample_col_index = data_col_index
+                min_samples = min(min_samples, math.ceil(len(line_array[sample_col_index:]) * 0.05))
 
                 # Check duplicate sample names in header
                 check_dup_set = set([x for x in line_array[data_col_index:]
@@ -170,7 +182,7 @@ def process_madc(report, min_samples, min_reads):
             else:
                 # Regular allele data rows
                 return_list, return_fasta, miss_count, retained_count, alleles, allele_ID = \
-                    extract_RefMatch_AltMatch(data_col_index, miss_count, retained_count, alleles, min_samples, min_reads, line_array)
+                    extract_RefMatch_AltMatch(data_col_index, sample_col_index, miss_count, retained_count, alleles, min_samples, min_reads, line_array)
                 if return_list != 'False':
                     outp_report.write(','.join(return_list) + '\n')
                 if return_fasta != 'False':
@@ -200,13 +212,15 @@ if __name__ == '__main__':
     parser.add_argument('--lut', help='Marker ID lookup table', default=None)
     parser.add_argument('--min_samples', type=int, default=10, help='Minimum number of samples with minimum reads to retain an allele')
     parser.add_argument('--min_reads', type=int, default=2, help='Minimum number of reads to retain an allele')
+    parser.add_argument('--first_sample_col', type=int, default=None,
+                        help='Column number of the first sample (1-based). If omitted, it is taken from the leading * rows.')
     parser.add_argument('--split_by_colID', default='insert_size',
                         help='Column ID to split FASTA file; leave empty or "" to ignore')
 
     args = parser.parse_args()
 
     # 1. Extract RefMatch and AltMatch alleles meeting the criteria
-    match_fasta = process_madc(args.report, args.min_samples, args.min_reads)
+    match_fasta = process_madc(args.report, args.min_samples, args.min_reads, args.first_sample_col)
 
     # 2. Logic for optional LUT and split_by_colID
     split_by_dict = {}

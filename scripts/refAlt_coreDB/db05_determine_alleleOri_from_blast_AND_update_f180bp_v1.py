@@ -24,7 +24,12 @@ def get_rev_compliment_fasta(fastaDB, alleles):
     minus = []
     while line:
         if line.startswith('>'):
-            if alleles[line[1:].strip()][-1] == '-':
+            #### CHANGE: an allele with no BLAST hit used to stop the step with a KeyError,
+            #### leaving the rest of the file unwritten. It is now left out and reported.
+            if line[1:].strip() not in alleles:
+                print('  # No BLAST hit, leaving out: ', line[1:].strip())
+                inp.readline()
+            elif alleles[line[1:].strip()][-1] == '-':
                 # Add the markers on minus strand of the reference genome to a list
                 marker = line.split('|')[0][1:]
                 if marker not in minus:
@@ -88,7 +93,9 @@ def ext_unique_hits_for_queries(blast):
                         if float(line_array[10]) > float(alleles[line_array[4]][10]):
                             print('  # Update this query: \n', alleles[line_array[4]])
                             print('  # With this one:', line_array)
-                            alleles[line_array[0]] = line_array
+                            #### CHANGE: this stored the better hit under the query name, so
+                            #### the lookup by subject name above still used the older hit.
+                            alleles[line_array[4]] = line_array
                         else:
                             pass
                     else:

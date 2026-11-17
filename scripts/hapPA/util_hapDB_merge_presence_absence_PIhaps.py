@@ -20,6 +20,10 @@ def concat_madc(report_paths, outfile):
 
         df_temp = pd.read_csv(curr_file, index_col='AlleleID')
 
+        #### CHANGE: a matrix merged earlier already has these columns. They are
+        #### rebuilt below, and an old Presence_count would be summed like a sample.
+        df_temp = df_temp.drop(columns=['CloneID', 'Presence_count'], errors='ignore')
+
         # Extract order_id for the current file
         order_id = os.path.basename(curr_file).split("_")[0]
         print(f"Loading: {order_id}")

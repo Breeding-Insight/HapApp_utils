@@ -45,11 +45,10 @@ def determine_allele_status(db_fasta):
 
 
 def remove_duplicate_alleles_in_db_fasta(db_fasta, remove_alleles):
-    import subprocess
-    cmd = 'grep -c ">" ' + db_fasta
-    total_seq = subprocess.check_output(cmd, shell=True).strip().decode('ascii')
+    with open(db_fasta) as counted:
+        total_seq = sum(1 for line in counted if line.startswith('>'))
     import re
-    import os
+    import shutil
     db_fasta_array = re.split("[_|.]", db_fasta)
     version = int(db_fasta_array[-2].replace('v', '')) + 1
     new_suffix = '_v' + str(version).zfill(3)
@@ -59,8 +58,7 @@ def remove_duplicate_alleles_in_db_fasta(db_fasta, remove_alleles):
     # Don't need to update the allele_lut.txt
     current_lut = db_fasta.replace('.fa', '_matchCnt_lut.txt')
     lut = outf.replace('.fa', '_matchCnt_lut.txt')
-    cmd = 'cp ' + current_lut + ' ' + lut
-    os.system(cmd)
+    shutil.copyfile(current_lut, lut)
     
     inp = open(db_fasta)
     line = inp.readline()
